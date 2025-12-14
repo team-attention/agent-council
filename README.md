@@ -5,6 +5,10 @@
 > A Claude Code plugin that collects and synthesizes opinions from multiple AI Agents.
 > Inspired by [Karpathy's LLM Council](https://github.com/karpathy/llm-council)
 
+## Demo
+
+https://github.com/user-attachments/assets/c550c473-00d2-4def-b7ba-654cc7643e9b
+
 ## How it Works
 
 Agent Council implements a 3-stage process for gathering AI consensus:

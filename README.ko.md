@@ -5,6 +5,10 @@
 > 여러 AI Agent의 의견을 수집하고 종합하는 Claude Code 플러그인
 > [Karpathy의 LLM Council](https://github.com/karpathy/llm-council)에서 영감을 받음
 
+## 데모
+
+https://github.com/user-attachments/assets/c550c473-00d2-4def-b7ba-654cc7643e9b
+
 ## 작동 방식
 
 Agent Council은 AI 합의를 수집하기 위한 3단계 프로세스를 구현합니다:
