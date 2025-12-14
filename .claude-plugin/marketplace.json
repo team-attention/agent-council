@@ -9,7 +9,10 @@
       "name": "agent-council",
       "source": "./",
       "description": "Collect and synthesize opinions from multiple AI Agents",
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "skills": [
+        "./skills/agent-council"
+      ]
     }
   ]
 }
