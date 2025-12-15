@@ -362,10 +362,10 @@ call_chairman() {
 
     # Most CLIs accept a prompt arg; codex exec also supports stdin via "-" but we keep it generic here.
     # Read the prompt file into a variable so we can reuse the same execution pattern as members.
-    local SAVED_PROMPT="$PROMPT"
-    PROMPT="$(cat "$prompt_file")"
-    eval "$command \"\$PROMPT\"" 2>/dev/null > "$output_file" || echo "Error calling chairman ($name)" > "$output_file"
-    PROMPT="$SAVED_PROMPT"
+    # Read the prompt file into a local variable to avoid modifying the global PROMPT variable.
+    local chairman_prompt_for_eval
+    chairman_prompt_for_eval="$(cat "$prompt_file")"
+    eval "$command \"\$chairman_prompt_for_eval\"" 2>/dev/null > "$output_file" || echo "Error calling chairman ($name)" > "$output_file"
 }
 
 # Resolve chairman + settings
