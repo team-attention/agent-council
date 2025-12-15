@@ -228,8 +228,12 @@ parse_chairman_command() {
     /^  [a-z]/ && in_chair { in_chair=0 }
     in_chair && /^    command:/ {
         cmd=$0
-        sub(/.*command: *"?/, "", cmd)
-        sub(/".*$/, "", cmd)
+        sub(/.*command:[ \t]*/, "", cmd) # remove prefix
+        sub(/[ \t]*#.*/, "", cmd) # remove comment
+        sub(/[ \t]*$/, "", cmd) # trim trailing space
+        if (substr(cmd, 1, 1) == "\"" && substr(cmd, length(cmd), 1) == "\"") {
+            cmd = substr(cmd, 2, length(cmd)-2)
+        }
         print cmd
         exit
     }
