@@ -10,7 +10,7 @@ description: Collect and synthesize opinions from multiple AI Agents. Use when u
 
 ## Overview
 
-Agent Council gathers opinions from multiple AI Agents (Codex, Gemini, etc.) when facing difficult questions or decisions, with Claude acting as Chairman to synthesize the final response.
+Agent Council gathers opinions from multiple AI Agents (Codex, Gemini, etc.) when facing difficult questions or decisions. A configurable Chairman then synthesizes the final response (default: `role: auto`, meaning the host agent you’re using).
 
 ## Trigger Conditions
 
@@ -20,6 +20,7 @@ This skill activates when:
 - "Review this from multiple perspectives"
 - "Ask codex and gemini for their opinions"
 - "council"
+- "$agent-council"
 
 ## 3-Stage Process (LLM Council Method)
 
@@ -30,7 +31,7 @@ Send the same question to each council member to collect initial opinions
 Collect and display each Agent's response to the user
 
 ### Stage 3: Chairman Synthesis
-Claude (Chairman) synthesizes all responses and presents the final opinion
+The Chairman synthesizes all responses and presents the final opinion (usually handled by the host agent; optionally can be executed inside `council.sh` via `chairman.command`)
 
 ## Usage
 
@@ -40,11 +41,11 @@ Claude (Chairman) synthesizes all responses and presents the final opinion
 ./skills/agent-council/scripts/council.sh "your question here"
 ```
 
-### Execution via Claude
+### Execution via Host Agent
 
-1. Request council summon from Claude
-2. Claude executes the script to collect each Agent's opinion
-3. Claude synthesizes as Chairman and presents final recommendation
+1. Request council summon from your host agent (Claude Code / Codex CLI)
+2. The host agent executes the script to collect each Agent's opinion
+3. The host agent synthesizes as Chairman and presents the final recommendation
 
 ## Examples
 
@@ -53,8 +54,8 @@ Claude (Chairman) synthesizes all responses and presents the final opinion
 ```
 User: "React vs Vue - which fits this project better? Summon the council"
 
-Claude:
-1. Execute council.sh to collect Codex, Gemini opinions
+Host agent:
+1. Execute council.sh to collect opinions from configured members (e.g., Codex, Gemini)
 2. Organize each Agent's perspective
 3. Recommend based on project context
 ```
@@ -64,7 +65,7 @@ Claude:
 ```
 User: "Let's hear other AIs' opinions on this design"
 
-Claude:
+Host agent:
 1. Summarize current design and query the council
 2. Collect feedback from each Agent
 3. Analyze commonalities/differences and provide synthesis
@@ -78,7 +79,7 @@ Council members are configured in `council.config.yaml`. Default members:
 |-------|-------------|-----------------|
 | OpenAI Codex | `codex exec` | Code-focused, pragmatic approach |
 | Google Gemini | `gemini` | Broad knowledge, diverse perspectives |
-| Claude (Chairman) | - | Synthesis and final judgment |
+| Chairman (auto) | - | Synthesis and final judgment (by your host agent) |
 
 ## Requirements
 
@@ -98,6 +99,8 @@ Edit `council.config.yaml` to customize council members:
 
 ```yaml
 council:
+  chairman:
+    role: "auto"
   members:
     - name: codex
       command: "codex exec"
@@ -120,6 +123,6 @@ skills/agent-council/
 
 ## Notes
 
-- API costs incurred for each Agent call
+- Costs and auth depend on each Agent CLI
 - Response time depends on the slowest Agent
 - Do not share sensitive information with the council

@@ -12,6 +12,30 @@ const NC = '\x1b[0m';
 const packageRoot = path.resolve(__dirname, '..');
 const targetDir = process.cwd();
 const claudeDir = path.join(targetDir, '.claude');
+const codexDir = path.join(targetDir, '.codex');
+
+function parseArgs(argv) {
+  const args = argv.slice(2);
+  const flags = new Set(args);
+
+  const targetIndex = args.indexOf('--target');
+  let target = 'claude';
+  if (targetIndex !== -1 && args[targetIndex + 1]) {
+    target = args[targetIndex + 1];
+  } else if (flags.has('--both')) {
+    target = 'both';
+  } else if (flags.has('--codex')) {
+    target = 'codex';
+  } else if (flags.has('--claude')) {
+    target = 'claude';
+  }
+
+  if (!['claude', 'codex', 'both'].includes(target)) {
+    throw new Error(`Invalid --target "${target}". Use claude|codex|both.`);
+  }
+
+  return { target };
+}
 
 console.log(`${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}`);
 console.log(`${CYAN}  Agent Council - Installation${NC}`);
@@ -39,31 +63,50 @@ function copyRecursive(src, dest) {
 }
 
 try {
-  // Create .claude directory if not exists
-  if (!fs.existsSync(claudeDir)) {
-    fs.mkdirSync(claudeDir, { recursive: true });
+  const { target } = parseArgs(process.argv);
+
+  const installs = [];
+  if (target === 'claude' || target === 'both') {
+    installs.push({
+      label: 'Claude Code',
+      rootDir: claudeDir,
+      skillsDest: path.join(claudeDir, 'skills', 'agent-council'),
+      displayPath: '.claude/skills/agent-council',
+    });
+  }
+  if (target === 'codex' || target === 'both') {
+    installs.push({
+      label: 'Codex CLI',
+      rootDir: codexDir,
+      skillsDest: path.join(codexDir, 'skills', 'agent-council'),
+      displayPath: '.codex/skills/agent-council',
+    });
   }
 
-  // Copy skills folder to .claude/skills/
+  // Copy skills folder to target(s)
   const skillsSrc = path.join(packageRoot, 'skills', 'agent-council');
-  const skillsDest = path.join(claudeDir, 'skills', 'agent-council');
-
-  if (fs.existsSync(skillsSrc)) {
-    console.log(`${YELLOW}Installing skills...${NC}`);
-    copyRecursive(skillsSrc, skillsDest);
-    console.log(`${GREEN}  ✓ .claude/skills/agent-council${NC}`);
-  }
-
-  // Copy config file to skill folder if not exists
   const configSrc = path.join(packageRoot, 'council.config.yaml');
-  const configDest = path.join(skillsDest, 'council.config.yaml');
 
-  if (fs.existsSync(configSrc) && !fs.existsSync(configDest)) {
-    console.log(`${YELLOW}Installing config...${NC}`);
-    fs.copyFileSync(configSrc, configDest);
-    console.log(`${GREEN}  ✓ .claude/skills/agent-council/council.config.yaml${NC}`);
-  } else if (fs.existsSync(configDest)) {
-    console.log(`${YELLOW}  ⓘ council.config.yaml already exists, skipping${NC}`);
+  for (const install of installs) {
+    if (!fs.existsSync(install.rootDir)) {
+      fs.mkdirSync(install.rootDir, { recursive: true });
+    }
+
+    if (fs.existsSync(skillsSrc)) {
+      console.log(`${YELLOW}Installing skills (${install.label})...${NC}`);
+      copyRecursive(skillsSrc, install.skillsDest);
+      console.log(`${GREEN}  ✓ ${install.displayPath}${NC}`);
+    }
+
+    // Copy config file to skill folder if not exists
+    const configDest = path.join(install.skillsDest, 'council.config.yaml');
+    if (fs.existsSync(configSrc) && !fs.existsSync(configDest)) {
+      console.log(`${YELLOW}Installing config (${install.label})...${NC}`);
+      fs.copyFileSync(configSrc, configDest);
+      console.log(`${GREEN}  ✓ ${install.displayPath}/council.config.yaml${NC}`);
+    } else if (fs.existsSync(configDest)) {
+      console.log(`${YELLOW}  ⓘ council.config.yaml already exists (${install.label}), skipping${NC}`);
+    }
   }
 
   console.log();
@@ -77,6 +120,7 @@ try {
   console.log();
   console.log(`${CYAN}Direct execution:${NC}`);
   console.log(`  .claude/skills/agent-council/scripts/council.sh "your question"`);
+  console.log(`  .codex/skills/agent-council/scripts/council.sh "your question"`);
   console.log();
   console.log(`${YELLOW}Note: Make sure codex and gemini CLIs are installed.${NC}`);
 

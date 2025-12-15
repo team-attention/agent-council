@@ -2,7 +2,7 @@
 
 **[한국어 버전 (Korean)](./README.ko.md)**
 
-> A Claude Code skill that lets Claude discuss with Codex and Gemini CLI to reach conclusions.
+> A skill that gathers opinions from multiple AI CLIs (Codex, Gemini, ...) and lets a configurable Chairman synthesize a conclusion.
 > Inspired by [Karpathy's LLM Council](https://github.com/karpathy/llm-council)
 
 ## Key Difference from LLM Council
@@ -28,7 +28,7 @@ All configured AI agents receive your question simultaneously and respond indepe
 Responses from each agent are collected and displayed to you in a formatted view.
 
 **Stage 3: Chairman Synthesis**
-Claude acts as the Chairman, synthesizing all opinions into a final recommendation based on commonalities, differences, and context.
+Your host agent (Claude Code / Codex CLI / etc.) acts as the Chairman by default (`role: auto`), synthesizing all opinions into a final recommendation. Optionally, you can configure a Chairman CLI command to run synthesis inside `council.sh`.
 
 ## Setup
 
@@ -39,6 +39,11 @@ npx github:team-attention/agent-council
 ```
 
 This copies the skill files to your current project directory.
+
+Optional (Codex repo skill):
+```bash
+npx github:team-attention/agent-council --target codex
+```
 
 ### Option B: Install via Claude Code Plugin
 
@@ -74,6 +79,10 @@ Edit `council.config.yaml` to customize your council:
 
 ```yaml
 council:
+  chairman:
+    role: "auto" # auto|claude|codex|gemini|...
+    # command: "codex exec" # optional: run Stage 3 inside council.sh
+
   members:
     - name: codex
       command: "codex exec"
@@ -118,8 +127,8 @@ Simply ask Claude to summon the council:
 ```
 User: "React vs Vue for a new dashboard project - summon the council"
 
-Claude:
-1. Executes council.sh to collect opinions from Codex and Gemini
+Host agent (Claude Code / Codex CLI):
+1. Executes council.sh to collect opinions from configured members (e.g., Codex, Gemini)
 2. Displays each agent's perspective
 3. Synthesizes as Chairman:
    "Based on the council's input, considering your dashboard's
