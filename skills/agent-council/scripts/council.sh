@@ -161,6 +161,7 @@ fi
 
 PROMPT="${PROMPT_ARGS[*]}"
 TEMP_DIR=$(mktemp -d)
+trap "rm -rf '$TEMP_DIR'" EXIT
 
 # Parse YAML config (simple parser for our structure - macOS compatible)
 parse_members() {
