@@ -53,7 +53,7 @@ npx github:team-attention/agent-council --target claude
 npx github:team-attention/agent-council --target both
 ```
 
-생성되는 `council.config.yaml`은 감지된 멤버 CLI(codex/gemini 등)만 활성화하며, 설치 타깃(호스트)은 members에 포함되지 않도록 처리합니다.
+생성되는 `council.config.yaml`은 감지된 멤버 CLI(claude/codex/gemini 등)만 활성화하며, 설치 타깃(호스트)은 members에 포함되지 않도록 처리합니다.
 
 ### 방법 B: Claude Code 플러그인으로 설치
 
@@ -98,13 +98,11 @@ council:
       command: "codex exec"
       emoji: "🤖"
       color: "BLUE"
-      description: "OpenAI Codex - 코드 중심, 실용적 접근"
 
     - name: gemini
       command: "gemini"
       emoji: "💎"
       color: "GREEN"
-      description: "Google Gemini - 넓은 지식, 다양한 관점"
 
     # 필요에 따라 에이전트 추가
     # - name: grok

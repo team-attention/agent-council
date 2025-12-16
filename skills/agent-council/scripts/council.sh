@@ -287,7 +287,8 @@ trap "rm -rf '$TEMP_DIR'" EXIT
 parse_members() {
     if [ ! -f "$CONFIG_FILE" ]; then
         echo -e "${YELLOW}Warning: Config file not found at $CONFIG_FILE${NC}" >&2
-        echo -e "${YELLOW}Using default configuration (codex, gemini)${NC}" >&2
+        echo -e "${YELLOW}Using default configuration (claude, codex, gemini)${NC}" >&2
+        echo "claude|claude -p|🧠|CYAN"
         echo "codex|codex exec|🤖|BLUE"
         echo "gemini|gemini|💎|GREEN"
         return

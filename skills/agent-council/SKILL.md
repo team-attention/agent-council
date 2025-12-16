@@ -73,10 +73,11 @@ Host agent:
 
 ## Council Members
 
-Council members are configured in `council.config.yaml`. Default members:
+Council members are configured in `council.config.yaml`. The installer enables only detected CLIs and (by default) excludes the host chairman from members.
 
 | Agent | CLI Command | Characteristics |
 |-------|-------------|-----------------|
+| Claude Code | `claude -p` | Thoughtful, structured reasoning |
 | OpenAI Codex | `codex exec` | Code-focused, pragmatic approach |
 | Google Gemini | `gemini` | Broad knowledge, diverse perspectives |
 | Chairman (auto) | - | Synthesis and final judgment (by your host agent) |
@@ -84,11 +85,12 @@ Council members are configured in `council.config.yaml`. Default members:
 ## Requirements
 
 - Each configured CLI must be installed and authenticated
-- Default: OpenAI Codex CLI, Google Gemini CLI
+- Template includes: Claude CLI, OpenAI Codex CLI, Google Gemini CLI
 
 ### Verify Installation
 
 ```bash
+claude --version
 codex --version
 gemini --version
 ```
@@ -102,6 +104,10 @@ council:
   chairman:
     role: "auto"
   members:
+    - name: claude
+      command: "claude -p"
+      emoji: "🧠"
+      color: "CYAN"
     - name: codex
       command: "codex exec"
       emoji: "🤖"

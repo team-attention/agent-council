@@ -6,22 +6,24 @@ council:
   # Each member needs:
   #   - name: identifier for the agent
   #   - command: CLI command to execute (prompt will be appended)
-  #   - emoji: display emoji
+  #   - emoji: display emoji (optional)
   #   - color: ANSI color (RED, GREEN, BLUE, YELLOW, CYAN)
-  #   - description: brief description of the agent's characteristics
 
   members:
+    - name: claude
+      command: "claude -p"
+      emoji: "🧠"
+      color: "CYAN"
+
     - name: codex
       command: "codex exec"
       emoji: "🤖"
       color: "BLUE"
-      description: "OpenAI Codex - Code-focused, pragmatic approach"
 
     - name: gemini
       command: "gemini"
       emoji: "💎"
       color: "GREEN"
-      description: "Google Gemini - Broad knowledge, diverse perspectives"
 
   # Chairman configuration (Claude will act as chairman)
   chairman:

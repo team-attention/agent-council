@@ -53,7 +53,7 @@ npx github:team-attention/agent-council --target claude
 npx github:team-attention/agent-council --target both
 ```
 
-The generated `council.config.yaml` enables only detected member CLIs (e.g. `codex`, `gemini`) and avoids adding the host target as a member.
+The generated `council.config.yaml` enables only detected member CLIs (e.g. `claude`, `codex`, `gemini`) and avoids adding the host target as a member.
 
 ### Option B: Install via Claude Code Plugin
 
@@ -98,13 +98,11 @@ council:
       command: "codex exec"
       emoji: "🤖"
       color: "BLUE"
-      description: "OpenAI Codex - Code-focused, pragmatic approach"
 
     - name: gemini
       command: "gemini"
       emoji: "💎"
       color: "GREEN"
-      description: "Google Gemini - Broad knowledge, diverse perspectives"
 
     # Add more agents as needed
     # - name: grok
