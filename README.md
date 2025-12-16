@@ -40,10 +40,20 @@ npx github:team-attention/agent-council
 
 This copies the skill files to your current project directory.
 
+By default, the installer auto-detects whether to install for Claude Code (`.claude/`) and/or Codex CLI (`.codex/`) based on what’s available on your machine and in the repo.
+
 Optional (Codex repo skill):
 ```bash
 npx github:team-attention/agent-council --target codex
 ```
+
+Other targets:
+```bash
+npx github:team-attention/agent-council --target claude
+npx github:team-attention/agent-council --target both
+```
+
+The generated `council.config.yaml` enables only detected member CLIs (e.g. `codex`, `gemini`) and avoids adding the host target as a member.
 
 ### Option B: Install via Claude Code Plugin
 

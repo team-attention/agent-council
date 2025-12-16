@@ -40,10 +40,20 @@ npx github:team-attention/agent-council
 
 현재 프로젝트 디렉토리에 스킬 파일들이 복사됩니다.
 
+기본값으로 설치 스크립트가 자동으로 Claude Code(`.claude/`) / Codex CLI(`.codex/`) 설치 여부를 감지해서 가능한 타깃에 설치합니다.
+
 선택사항 (Codex용 레포 스킬로 설치):
 ```bash
 npx github:team-attention/agent-council --target codex
 ```
+
+다른 타깃:
+```bash
+npx github:team-attention/agent-council --target claude
+npx github:team-attention/agent-council --target both
+```
+
+생성되는 `council.config.yaml`은 감지된 멤버 CLI(codex/gemini 등)만 활성화하며, 설치 타깃(호스트)은 members에 포함되지 않도록 처리합니다.
 
 ### 방법 B: Claude Code 플러그인으로 설치
 
