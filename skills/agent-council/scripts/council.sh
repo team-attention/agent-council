@@ -14,18 +14,6 @@
 #       --include-chairman        Do not filter chairman out of members
 #       --exclude-chairman        Filter chairman out of members (default)
 #   -h, --help                    Show help
-# Usage:
-#   council.sh [options] "question or prompt"
-#
-# Options:
-#   -c, --config <path>           Use a specific config file path
-#       --chairman <role|auto>    Set chairman role (auto|claude|codex|gemini|...)
-#       --chairman-command <cmd>  Run Stage 3 synthesis via this CLI command
-#       --synthesize              Force Stage 3 synthesis (requires chairman command or inferrable)
-#       --no-synthesize           Disable Stage 3 synthesis (default when no chairman command)
-#       --include-chairman        Do not filter chairman out of members
-#       --exclude-chairman        Filter chairman out of members (default)
-#   -h, --help                    Show help
 #
 # LLM Council (Karpathy) concept:
 # - Stage 1: Send same question to each Agent
@@ -52,20 +40,6 @@ resolve_default_config_file() {
 }
 
 DEFAULT_CONFIG_FILE="$(resolve_default_config_file)"
-SKILL_CONFIG_FILE="$SKILL_DIR/council.config.yaml"
-REPO_CONFIG_FILE="$(cd "$SKILL_DIR/../.." && pwd)/council.config.yaml"
-
-resolve_default_config_file() {
-    if [ -f "$SKILL_CONFIG_FILE" ]; then
-        echo "$SKILL_CONFIG_FILE"
-    elif [ -f "$REPO_CONFIG_FILE" ]; then
-        echo "$REPO_CONFIG_FILE"
-    else
-        echo "$SKILL_CONFIG_FILE"
-    fi
-}
-
-DEFAULT_CONFIG_FILE="$(resolve_default_config_file)"
 
 # Colors
 RED='\033[0;31m'
@@ -75,30 +49,6 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
-
-usage() {
-    cat <<EOF
-Agent Council - Collect opinions from multiple AI Agents
-
-Usage:
-  $(basename "$0") [options] "question or prompt"
-
-Options:
-  -c, --config <path>           Use a specific config file path
-      --chairman <role|auto>    Set chairman role (auto|claude|codex|gemini|...)
-      --chairman-command <cmd>  Run Stage 3 synthesis via this CLI command
-      --synthesize              Force Stage 3 synthesis (requires chairman command or inferrable)
-      --no-synthesize           Disable Stage 3 synthesis
-      --include-chairman        Do not filter chairman out of members
-      --exclude-chairman        Filter chairman out of members (default)
-  -h, --help                    Show help
-
-Environment overrides:
-  COUNCIL_CONFIG                Same as --config
-  COUNCIL_CHAIRMAN              Same as --chairman
-  COUNCIL_CHAIRMAN_COMMAND      Same as --chairman-command
-EOF
-}
 
 usage() {
     cat <<EOF
@@ -206,79 +156,9 @@ done
 if [ ${#PROMPT_ARGS[@]} -eq 0 ]; then
     echo -e "${RED}Error: Please provide a prompt${NC}" >&2
     usage >&2
-detect_host() {
-    case "$SKILL_DIR" in
-        */.claude/skills/*) echo "claude" ;;
-        */.codex/skills/*) echo "codex" ;;
-        *) echo "unknown" ;;
-    esac
-}
-
-CONFIG_FILE="${COUNCIL_CONFIG:-$DEFAULT_CONFIG_FILE}"
-CHAIRMAN_OVERRIDE="${COUNCIL_CHAIRMAN:-}"
-CHAIRMAN_COMMAND_OVERRIDE="${COUNCIL_CHAIRMAN_COMMAND:-}"
-SYNTHESIZE_OVERRIDE=""
-EXCLUDE_CHAIRMAN_OVERRIDE=""
-
-PROMPT_ARGS=()
-while [ $# -gt 0 ]; do
-    case "$1" in
-        -c|--config)
-            CONFIG_FILE="$2"
-            shift 2
-            ;;
-        --chairman)
-            CHAIRMAN_OVERRIDE="$2"
-            shift 2
-            ;;
-        --chairman-command)
-            CHAIRMAN_COMMAND_OVERRIDE="$2"
-            shift 2
-            ;;
-        --synthesize)
-            SYNTHESIZE_OVERRIDE="true"
-            shift
-            ;;
-        --no-synthesize)
-            SYNTHESIZE_OVERRIDE="false"
-            shift
-            ;;
-        --include-chairman)
-            EXCLUDE_CHAIRMAN_OVERRIDE="false"
-            shift
-            ;;
-        --exclude-chairman)
-            EXCLUDE_CHAIRMAN_OVERRIDE="true"
-            shift
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        --)
-            shift
-            PROMPT_ARGS+=("$@")
-            break
-            ;;
-        -*)
-            echo -e "${RED}Error: Unknown option: $1${NC}" >&2
-            usage >&2
-            exit 2
-            ;;
-        *)
-            PROMPT_ARGS+=("$1")
-            shift
-            ;;
-    esac
-done
-
-if [ ${#PROMPT_ARGS[@]} -eq 0 ]; then
-    echo -e "${RED}Error: Please provide a prompt${NC}" >&2
-    usage >&2
     exit 1
 fi
 
-PROMPT="${PROMPT_ARGS[*]}"
 PROMPT="${PROMPT_ARGS[*]}"
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf '$TEMP_DIR'" EXIT
@@ -438,11 +318,7 @@ call_agent() {
     local output_file="$TEMP_DIR/${name}.txt"
     local color_code="$3"
     local show_thinking="$4"
-    local show_thinking="$4"
 
-    if [ "$show_thinking" = "true" ]; then
-        echo -e "${color_code}[$name]${NC} Thinking..." >&2
-    fi
     if [ "$show_thinking" = "true" ]; then
         echo -e "${color_code}[$name]${NC} Thinking..." >&2
     fi
@@ -541,7 +417,6 @@ echo ""
 declare -a PIDS
 declare -a MEMBERS
 declare -a SKIPPED
-declare -a SKIPPED
 
 while IFS='|' read -r name cmd emoji color; do
     [ -z "$name" ] && continue
@@ -549,18 +424,8 @@ while IFS='|' read -r name cmd emoji color; do
         SKIPPED+=("$name")
         continue
     fi
-    if [ "$EXCLUDE_CHAIRMAN_FROM_MEMBERS" = "true" ] && [ "$(echo "$name" | tr '[:upper:]' '[:lower:]')" = "$CHAIRMAN_ROLE" ]; then
-        SKIPPED+=("$name")
-        continue
-    fi
     MEMBERS+=("$name|$emoji|$color")
     color_code=$(get_color_code "$color")
-    if [ "$PARALLEL" = "true" ]; then
-        call_agent "$name" "$cmd" "$color_code" "$SHOW_THINKING" &
-        PIDS+=($!)
-    else
-        call_agent "$name" "$cmd" "$color_code" "$SHOW_THINKING"
-    fi
     if [ "$PARALLEL" = "true" ]; then
         call_agent "$name" "$cmd" "$color_code" "$SHOW_THINKING" &
         PIDS+=($!)
@@ -575,17 +440,8 @@ if [ "$PARALLEL" = "true" ]; then
         wait "$pid" 2>/dev/null || true
     done
 fi
-if [ "$PARALLEL" = "true" ]; then
-    for pid in "${PIDS[@]}"; do
-        wait "$pid" 2>/dev/null || true
-    done
-fi
 
 echo ""
-if [ ${#SKIPPED[@]} -gt 0 ]; then
-    echo -e "${YELLOW}ⓘ Skipped member(s) because they are set as Chairman:${NC} ${SKIPPED[*]}"
-    echo ""
-fi
 if [ ${#SKIPPED[@]} -gt 0 ]; then
     echo -e "${YELLOW}ⓘ Skipped member(s) because they are set as Chairman:${NC} ${SKIPPED[*]}"
     echo ""
@@ -614,47 +470,6 @@ for member_info in "${MEMBERS[@]}"; do
 done
 
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-if [ "$SYNTHESIZE" = "true" ] && [ -n "$CHAIRMAN_COMMAND" ]; then
-    echo -e "${CYAN}Stage 3: Chairman Synthesis (via CLI)${NC}"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo ""
-
-    CHAIRMAN_PROMPT="You are the Chairman of an AI council."
-    CHAIRMAN_PROMPT+=$'\n\n'"User question:"
-    CHAIRMAN_PROMPT+=$'\n'"$PROMPT"
-    CHAIRMAN_PROMPT+=$'\n\n'"Council member opinions:"
-    for member_info in "${MEMBERS[@]}"; do
-        IFS='|' read -r name emoji color <<< "$member_info"
-        output_file="$TEMP_DIR/${name}.txt"
-        CHAIRMAN_PROMPT+=$'\n\n'"[${name}]"
-        if [ -f "$output_file" ]; then
-            CHAIRMAN_PROMPT+=$'\n'"$(cat "$output_file")"
-        else
-            CHAIRMAN_PROMPT+=$'\n'"No response"
-        fi
-    done
-    CHAIRMAN_PROMPT+=$'\n\n'"Please synthesize a final recommendation by:"
-    CHAIRMAN_PROMPT+=$'\n'"- Calling out common ground and disagreements"
-    CHAIRMAN_PROMPT+=$'\n'"- Providing a clear final answer"
-    CHAIRMAN_PROMPT+=$'\n'"- Responding in the same language as the user question"
-
-    call_chairman "$CHAIRMAN_ROLE" "$CHAIRMAN_COMMAND" "$CHAIRMAN_PROMPT"
-
-    output_file="$TEMP_DIR/__chairman.txt"
-    color_code=$(get_color_code "YELLOW")
-    echo -e "${color_code}┌─────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${color_code}│ 🪑 chairman (${CHAIRMAN_ROLE})${NC}"
-    echo -e "${color_code}└─────────────────────────────────────────────────────────┘${NC}"
-    if [ -f "$output_file" ]; then
-        cat "$output_file"
-    else
-        echo "No response"
-    fi
-    echo ""
-else
-    echo -e "${CYAN}Stage 3: ${CHAIRMAN_ROLE} (Chairman) will synthesize above opinions (external)${NC}"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-fi
 if [ "$SYNTHESIZE" = "true" ] && [ -n "$CHAIRMAN_COMMAND" ]; then
     echo -e "${CYAN}Stage 3: Chairman Synthesis (via CLI)${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
