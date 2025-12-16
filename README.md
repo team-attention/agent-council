@@ -9,7 +9,7 @@
 
 **No additional API costs!**
 
-Unlike Karpathy's LLM Council which directly calls each LLM's API (incurring costs), Agent Council uses CLI tools (Codex CLI, Gemini CLI). This is especially useful if you use Claude as your main tool and have $20 subscription plans for the others.
+Unlike Karpathy's LLM Council which directly calls each LLM's API (incurring costs), Agent Council uses your installed AI CLIs (Claude Code, Codex CLI, Gemini CLI, ...). This is especially useful if you mainly use one host CLI and occasionally consult others via subscriptions.
 
 Skills are much simpler and more reproducible than MCP. We recommend installing via npx and customizing it yourself!
 
@@ -42,6 +42,10 @@ This copies the skill files to your current project directory.
 
 By default, the installer auto-detects whether to install for Claude Code (`.claude/`) and/or Codex CLI (`.codex/`) based on what’s available on your machine and in the repo.
 
+Installed paths:
+- `.claude/skills/agent-council/` (Claude Code)
+- `.codex/skills/agent-council/` (Codex CLI)
+
 Optional (Codex repo skill):
 ```bash
 npx github:team-attention/agent-council --target codex
@@ -55,7 +59,7 @@ npx github:team-attention/agent-council --target both
 
 The generated `council.config.yaml` enables only detected member CLIs (e.g. `claude`, `codex`, `gemini`) and avoids adding the host target as a member.
 
-### Option B: Install via Claude Code Plugin
+### Option B: Install via Claude Code Plugin (Claude Code only)
 
 ```bash
 # Add the marketplace
@@ -67,9 +71,12 @@ The generated `council.config.yaml` enables only detected member CLIs (e.g. `cla
 
 ### 2. Install Agent CLIs
 
-The default configuration requires:
+Install the CLIs you want to use as council members (template includes `claude`, `codex`, `gemini`):
 
 ```bash
+# Anthropic Claude Code
+# https://claude.ai/code
+
 # OpenAI Codex CLI
 # https://github.com/openai/codex
 
@@ -79,13 +86,16 @@ The default configuration requires:
 
 Verify installation:
 ```bash
+claude --version
 codex --version
 gemini --version
 ```
 
 ### 3. Configure Council Members (Optional)
 
-Edit `council.config.yaml` to customize your council:
+Edit the generated config in your installed skill directory:
+- `.claude/skills/agent-council/council.config.yaml`
+- `.codex/skills/agent-council/council.config.yaml`
 
 ```yaml
 council:
@@ -113,9 +123,9 @@ council:
 
 ## Usage
 
-### Via Claude
+### Via your host agent (Claude Code / Codex CLI)
 
-Simply ask Claude to summon the council:
+Ask your host agent to summon the council:
 
 ```
 "Let's hear opinions from other AIs"
@@ -127,7 +137,9 @@ Simply ask Claude to summon the council:
 ### Direct Script Execution
 
 ```bash
-./skills/agent-council/scripts/council.sh "Your question here"
+.claude/skills/agent-council/scripts/council.sh "Your question here"
+# or
+.codex/skills/agent-council/scripts/council.sh "Your question here"
 ```
 
 ## Example
@@ -148,8 +160,9 @@ Host agent (Claude Code / Codex CLI):
 ```
 agent-council/
 ├── .claude-plugin/
-│   ├── plugin.json          # Plugin manifest
-│   └── marketplace.json     # Marketplace config
+│   └── marketplace.json     # Marketplace config (Claude Code only)
+├── bin/
+│   └── install.js           # npx installer
 ├── skills/
 │   └── agent-council/
 │       ├── SKILL.md         # Skill documentation
@@ -182,4 +195,4 @@ MIT License - see [LICENSE](./LICENSE) for details.
 ## Credits
 
 - Inspired by [Karpathy's LLM Council](https://github.com/karpathy/llm-council)
-- Built for [Claude Code](https://claude.ai/code)
+- Built for [Claude Code](https://claude.ai/code) and [Codex CLI](https://github.com/openai/codex)

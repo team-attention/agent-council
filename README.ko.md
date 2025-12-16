@@ -9,7 +9,7 @@
 
 **추가 API 비용이 들지 않습니다!**
 
-Karpathy의 LLM Council은 각 LLM의 API를 직접 호출하여 비용이 발생하지만, Agent Council은 CLI 도구(Codex CLI, Gemini CLI)를 활용합니다. Claude를 메인으로 사용하고 나머지는 $20 구독 플랜으로 가끔 사용하는 분들에게 특히 유용합니다.
+Karpathy의 LLM Council은 각 LLM의 API를 직접 호출하여 비용이 발생하지만, Agent Council은 설치된 AI CLI(Claude Code, Codex CLI, Gemini CLI 등)를 활용합니다. 주로 하나의 호스트 CLI를 메인으로 쓰면서 다른 CLI들은 구독 플랜으로 필요할 때만 쓰는 분들에게 특히 유용합니다.
 
 MCP보다 Skill이 훨씬 간단하고 재현 가능해서 npx로 설치 후 직접 커스터마이징하여 사용하시는 것을 추천합니다.
 
@@ -42,6 +42,10 @@ npx github:team-attention/agent-council
 
 기본값으로 설치 스크립트가 자동으로 Claude Code(`.claude/`) / Codex CLI(`.codex/`) 설치 여부를 감지해서 가능한 타깃에 설치합니다.
 
+설치 위치:
+- `.claude/skills/agent-council/` (Claude Code)
+- `.codex/skills/agent-council/` (Codex CLI)
+
 선택사항 (Codex용 레포 스킬로 설치):
 ```bash
 npx github:team-attention/agent-council --target codex
@@ -55,7 +59,7 @@ npx github:team-attention/agent-council --target both
 
 생성되는 `council.config.yaml`은 감지된 멤버 CLI(claude/codex/gemini 등)만 활성화하며, 설치 타깃(호스트)은 members에 포함되지 않도록 처리합니다.
 
-### 방법 B: Claude Code 플러그인으로 설치
+### 방법 B: Claude Code 플러그인으로 설치 (Claude Code 전용)
 
 ```bash
 # 마켓플레이스 추가
@@ -67,9 +71,12 @@ npx github:team-attention/agent-council --target both
 
 ### 2. Agent CLI 설치
 
-기본 설정에 필요한 CLI:
+Council 멤버로 쓰고 싶은 CLI를 설치하세요(템플릿 기본 포함: `claude`, `codex`, `gemini`):
 
 ```bash
+# Anthropic Claude Code
+# https://claude.ai/code
+
 # OpenAI Codex CLI
 # https://github.com/openai/codex
 
@@ -79,13 +86,16 @@ npx github:team-attention/agent-council --target both
 
 설치 확인:
 ```bash
+claude --version
 codex --version
 gemini --version
 ```
 
 ### 3. Council 멤버 설정 (선택사항)
 
-`council.config.yaml`을 편집하여 council을 커스터마이즈:
+설치된 스킬 폴더의 설정 파일을 편집해서 council을 커스터마이즈:
+- `.claude/skills/agent-council/council.config.yaml`
+- `.codex/skills/agent-council/council.config.yaml`
 
 ```yaml
 council:
@@ -113,9 +123,9 @@ council:
 
 ## 사용법
 
-### Claude를 통한 사용
+### 호스트 에이전트를 통한 사용 (Claude Code / Codex CLI)
 
-Claude에게 council 소집을 요청하면 됩니다:
+호스트 에이전트에게 council 소집을 요청하면 됩니다:
 
 ```
 "다른 AI들 의견도 들어보자"
@@ -127,7 +137,9 @@ Claude에게 council 소집을 요청하면 됩니다:
 ### 스크립트 직접 실행
 
 ```bash
-./skills/agent-council/scripts/council.sh "질문 내용"
+.claude/skills/agent-council/scripts/council.sh "질문 내용"
+# 또는
+.codex/skills/agent-council/scripts/council.sh "질문 내용"
 ```
 
 ## 예시
@@ -148,8 +160,9 @@ User: "새 대시보드 프로젝트에 React vs Vue 어떨까? council 소집�
 ```
 agent-council/
 ├── .claude-plugin/
-│   ├── plugin.json          # 플러그인 매니페스트
-│   └── marketplace.json     # 마켓플레이스 설정
+│   └── marketplace.json     # 마켓플레이스 설정 (Claude Code 전용)
+├── bin/
+│   └── install.js           # npx 설치 스크립트
 ├── skills/
 │   └── agent-council/
 │       ├── SKILL.md         # 스킬 문서
@@ -182,4 +195,4 @@ MIT 라이선스 - 자세한 내용은 [LICENSE](./LICENSE) 참조
 ## 크레딧
 
 - [Karpathy의 LLM Council](https://github.com/karpathy/llm-council)에서 영감
-- [Claude Code](https://claude.ai/code)용으로 제작
+- [Claude Code](https://claude.ai/code) / [Codex CLI](https://github.com/openai/codex) 용으로 제작
