@@ -104,6 +104,7 @@ Council members are configured in `council.config.yaml`. The installer enables o
 
 - Each configured CLI must be installed and authenticated
 - Template includes: Claude CLI, OpenAI Codex CLI, Google Gemini CLI
+- Job mode requires Node.js (plugins can’t bundle or auto-install it)
 
 ### Verify Installation
 

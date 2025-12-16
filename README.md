@@ -69,6 +69,8 @@ The generated `council.config.yaml` enables only detected member CLIs (e.g. `cla
 /plugin install agent-council@team-attention-plugins
 ```
 
+Note (Plugin installs): **Job mode requires Node.js**, and Claude Code plugins can’t bundle or auto-install Node for you. Install Node separately (e.g. `brew install node` on macOS), or use the non-job `council.sh` mode if you prefer a pure shell script.
+
 ### 2. Install Agent CLIs
 
 Install the CLIs you want to use as council members (template includes `claude`, `codex`, `gemini`):

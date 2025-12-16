@@ -69,6 +69,8 @@ npx github:team-attention/agent-council --target both
 /plugin install agent-council@team-attention-plugins
 ```
 
+참고(플러그인 설치): **Job Mode는 Node.js가 필요**하며, Claude Code 플러그인은 Node를 번들/자동 설치할 수 없습니다. Node를 별도로 설치하세요(예: macOS `brew install node`). Node 없이 쓰고 싶다면 순수 shell 스크립트인 `council.sh` 모드를 사용하세요.
+
 ### 2. Agent CLI 설치
 
 Council 멤버로 쓰고 싶은 CLI를 설치하세요(템플릿 기본 포함: `claude`, `codex`, `gemini`):
