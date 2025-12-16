@@ -10,6 +10,9 @@
     "skills/",
     "council.config.yaml"
   ],
+  "dependencies": {
+    "yaml": "^2.8.2"
+  },
   "keywords": [
     "claude-code",
     "plugin",

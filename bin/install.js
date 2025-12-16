@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const YAML = require('yaml');
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -71,102 +72,6 @@ function commandExists(command) {
   } catch {
     return false;
   }
-}
-
-function stripQuotes(value) {
-  const trimmed = value.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1);
-  }
-  return trimmed;
-}
-
-function getIndentation(line) {
-  const match = line.match(/^(\s*)/);
-  return match ? match[1].length : 0;
-}
-
-function parseTemplateMemberBlocks(templateText) {
-  const lines = templateText.split(/\r?\n/);
-
-  const membersLineIdx = lines.findIndex((line) => /^  members:\s*(?:\[\])?\s*$/.test(line));
-  if (membersLineIdx === -1) {
-    throw new Error('Template config is missing "council.members"');
-  }
-
-  const listStartIdx = membersLineIdx + 1;
-  let listEndIdx = lines.length;
-  for (let i = listStartIdx; i < lines.length; i++) {
-    if (lines[i].trim() === '') continue;
-    if (getIndentation(lines[i]) < 4) {
-      listEndIdx = i;
-      break;
-    }
-  }
-
-  const starts = [];
-  for (let i = listStartIdx; i < listEndIdx; i++) {
-    if (/^\s{4}-\s+name:\s*/.test(lines[i])) starts.push(i);
-  }
-
-  const blocks = [];
-  for (let idx = 0; idx < starts.length; idx++) {
-    const start = starts[idx];
-    const end = idx + 1 < starts.length ? starts[idx + 1] : listEndIdx;
-    const rawLines = lines.slice(start, end);
-
-    const nameLine = lines[start].replace(/^\s{4}-\s+name:\s*/, '');
-    const name = stripQuotes(nameLine);
-
-    let command = '';
-    for (const line of rawLines) {
-      const match = line.match(/^\s+command:\s*(.+)\s*$/);
-      if (match) {
-        command = stripQuotes(match[1]);
-        break;
-      }
-    }
-
-    blocks.push({
-      name,
-      command,
-      baseCommand: command.trim().split(/\s+/)[0] || '',
-      rawLines,
-    });
-  }
-
-  return { lines, membersLineIdx, listStartIdx, listEndIdx, blocks };
-}
-
-function renderConfigFromTemplate(templateText, enabledBlocks) {
-  const { lines, membersLineIdx, listStartIdx, listEndIdx } = parseTemplateMemberBlocks(templateText);
-
-  const out = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (i === membersLineIdx) {
-      if (enabledBlocks.length === 0) {
-        out.push('  members: []');
-      } else {
-        out.push('  members:');
-      }
-      continue;
-    }
-    if (i >= listStartIdx && i < listEndIdx) {
-      continue;
-    }
-    out.push(lines[i]);
-  }
-
-  if (enabledBlocks.length > 0) {
-    const insertAt = membersLineIdx + 1;
-    const enabledLines = enabledBlocks.flatMap((b) => b.rawLines);
-    out.splice(insertAt, 0, ...enabledLines);
-  }
-
-  return out.join('\n');
 }
 
 try {
@@ -253,22 +158,35 @@ try {
         continue;
       }
 
-      const parsed = parseTemplateMemberBlocks(templateConfigText);
-      const enabledBlocks = parsed.blocks.filter((block) => {
-        const nameLc = String(block.name || '').toLowerCase();
-        if (!block.baseCommand) return false;
-        if (nameLc === install.hostRole) return false;
-        return commandExists(block.baseCommand);
-      });
+      const doc = YAML.parseDocument(templateConfigText);
+      const membersNode = doc.getIn(['council', 'members']);
 
-      if (enabledBlocks.length === 0) {
-        console.log(
-          `${YELLOW}  ⓘ No member CLIs detected from template. Writing members: []; edit council.config.yaml to add members.${NC}`
-        );
+      if (membersNode && YAML.isCollection(membersNode)) {
+        const enabledMembers = membersNode.items.filter((item) => {
+          const member = item.toJSON();
+          const nameLc = String(member.name || '').toLowerCase();
+          if (nameLc === install.hostRole) return false;
+
+          const baseCommand = String(member.command || '')
+            .trim()
+            .split(/\s+/)[0];
+          if (!baseCommand) return false;
+
+          return commandExists(baseCommand);
+        });
+
+        membersNode.items = enabledMembers;
+
+        if (enabledMembers.length === 0) {
+          console.log(
+            `${YELLOW}  ⓘ No member CLIs detected from template. Writing members: []; edit council.config.yaml to add members.${NC}`
+          );
+        }
+      } else {
+        console.log(`${YELLOW}  ⓘ Template is missing council.members; writing template as-is.${NC}`);
       }
 
-      const rendered = renderConfigFromTemplate(templateConfigText, enabledBlocks);
-      fs.writeFileSync(configDest, rendered, 'utf8');
+      fs.writeFileSync(configDest, String(doc), 'utf8');
       console.log(`${GREEN}  ✓ ${install.displayPath}/council.config.yaml${NC}`);
     } else if (fs.existsSync(configDest)) {
       console.log(`${YELLOW}  ⓘ council.config.yaml already exists (${install.label}), skipping${NC}`);
