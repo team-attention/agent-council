@@ -142,6 +142,17 @@ council:
 .codex/skills/agent-council/scripts/council.sh "질문 내용"
 ```
 
+### 진행상태 표시 (Job Mode)
+
+호스트 UI에서 긴 `council.sh` 실행이 “실시간으로 갱신되는 느낌”이 약하다면, Job Mode를 쓰면 됩니다. 멤버 실행을 백그라운드에서 병렬로 돌리고, 짧은 명령으로 진행상태를 폴링할 수 있어 TODO/plan 업데이트에 유리합니다.
+
+```bash
+JOB_DIR=$(.codex/skills/agent-council/scripts/council-job.sh start "질문 내용")
+.codex/skills/agent-council/scripts/council-job.sh status --text "$JOB_DIR"
+.codex/skills/agent-council/scripts/council-job.sh results "$JOB_DIR"
+.codex/skills/agent-council/scripts/council-job.sh clean "$JOB_DIR"
+```
+
 ## 예시
 
 ```
@@ -167,7 +178,10 @@ agent-council/
 │   └── agent-council/
 │       ├── SKILL.md         # 스킬 문서
 │       └── scripts/
-│           └── council.sh   # 실행 스크립트
+│           ├── council.sh           # 실행 스크립트
+│           ├── council-job.sh       # 백그라운드 Job runner (폴링 가능)
+│           ├── council-job.js       # Job runner 구현
+│           └── council-job-worker.js # 멤버별 워커
 ├── council.config.yaml      # Council 멤버 설정
 ├── README.md                # 영어 문서
 ├── README.ko.md             # 이 문서

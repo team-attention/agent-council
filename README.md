@@ -142,6 +142,17 @@ Ask your host agent to summon the council:
 .codex/skills/agent-council/scripts/council.sh "Your question here"
 ```
 
+### Live Progress (Job Mode)
+
+If your host UI doesn’t feel “live” during a long `council.sh` run, use job mode: it starts member runs in parallel in the background and lets you poll progress with short commands (useful for TODO/plan updates).
+
+```bash
+JOB_DIR=$(.codex/skills/agent-council/scripts/council-job.sh start "Your question here")
+.codex/skills/agent-council/scripts/council-job.sh status --text "$JOB_DIR"
+.codex/skills/agent-council/scripts/council-job.sh results "$JOB_DIR"
+.codex/skills/agent-council/scripts/council-job.sh clean "$JOB_DIR"
+```
+
 ## Example
 
 ```
@@ -167,7 +178,10 @@ agent-council/
 │   └── agent-council/
 │       ├── SKILL.md         # Skill documentation
 │       └── scripts/
-│           └── council.sh   # Execution script
+│           ├── council.sh       # Execution script
+│           ├── council-job.sh   # Background job runner (pollable)
+│           ├── council-job.js   # Job runner implementation
+│           └── council-job-worker.js # Per-member worker
 ├── council.config.yaml      # Council member configuration
 ├── README.md                # This file
 ├── README.ko.md             # Korean documentation

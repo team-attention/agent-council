@@ -41,6 +41,24 @@ The Chairman synthesizes all responses and presents the final opinion (usually h
 ./skills/agent-council/scripts/council.sh "your question here"
 ```
 
+### Live Progress (Job Mode)
+
+Some host tools don’t stream stdout/stderr from long-running scripts in a “live terminal” way. Job mode lets you run members in parallel in the background, and poll progress with short commands (good for TODO/plan UIs).
+
+```bash
+# 1) Start a background job (returns immediately)
+JOB_DIR=$(./skills/agent-council/scripts/council-job.sh start "your question here")
+
+# 2) Poll progress (repeat as needed)
+./skills/agent-council/scripts/council-job.sh status --text "$JOB_DIR"
+
+# 3) Print collected outputs
+./skills/agent-council/scripts/council-job.sh results "$JOB_DIR"
+
+# 4) Cleanup
+./skills/agent-council/scripts/council-job.sh clean "$JOB_DIR"
+```
+
 ### Execution via Host Agent
 
 1. Request council summon from your host agent (Claude Code / Codex CLI)
