@@ -447,10 +447,12 @@ function cmdResults(options, jobDir) {
     for (const entry of fs.readdirSync(membersRoot)) {
       const statusPath = path.join(membersRoot, entry, 'status.json');
       const outputPath = path.join(membersRoot, entry, 'output.txt');
+      const errorPath = path.join(membersRoot, entry, 'error.txt');
       const status = readJsonIfExists(statusPath);
       if (!status) continue;
       const output = fs.existsSync(outputPath) ? fs.readFileSync(outputPath, 'utf8') : '';
-      members.push({ safeName: entry, ...status, output });
+      const stderr = fs.existsSync(errorPath) ? fs.readFileSync(errorPath, 'utf8') : '';
+      members.push({ safeName: entry, ...status, output, stderr });
     }
   }
 
@@ -468,7 +470,9 @@ function cmdResults(options, jobDir) {
               member: m.member,
               state: m.state,
               exitCode: m.exitCode != null ? m.exitCode : null,
+              message: m.message || null,
               output: m.output,
+              stderr: m.stderr,
             }))
             .sort((a, b) => String(a.member).localeCompare(String(b.member))),
         },
@@ -481,7 +485,12 @@ function cmdResults(options, jobDir) {
 
   for (const m of members.sort((a, b) => String(a.member).localeCompare(String(b.member)))) {
     process.stdout.write(`\n=== ${m.member} (${m.state}) ===\n`);
+    if (m.message) process.stdout.write(`${m.message}\n`);
     process.stdout.write(m.output || '');
+    if (!m.output && m.stderr) {
+      process.stdout.write('\n');
+      process.stdout.write(m.stderr);
+    }
     process.stdout.write('\n');
   }
 }
