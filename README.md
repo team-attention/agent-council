@@ -69,7 +69,7 @@ The generated `council.config.yaml` enables only detected member CLIs (e.g. `cla
 /plugin install agent-council@team-attention-plugins
 ```
 
-Note (Plugin installs): **Job mode requires Node.js**, and Claude Code plugins can’t bundle or auto-install Node for you. Install Node separately (e.g. `brew install node` on macOS), or use the non-job `council.sh` mode if you prefer a pure shell script.
+Note (Plugin installs): **Agent Council requires Node.js**, and Claude Code plugins can’t bundle or auto-install Node for you. Install Node separately (e.g. `brew install node` on macOS).
 
 ### 2. Install Agent CLIs
 
@@ -139,20 +139,16 @@ Ask your host agent to summon the council:
 ### Direct Script Execution
 
 ```bash
-.claude/skills/agent-council/scripts/council.sh "Your question here"
-# or
-.codex/skills/agent-council/scripts/council.sh "Your question here"
+JOB_DIR=$(.codex/skills/agent-council/scripts/council.sh start "Your question here")
+.codex/skills/agent-council/scripts/council.sh status --text "$JOB_DIR"
+.codex/skills/agent-council/scripts/council.sh results "$JOB_DIR"
+.codex/skills/agent-council/scripts/council.sh clean "$JOB_DIR"
 ```
 
-### Live Progress (Job Mode)
-
-If your host UI doesn’t feel “live” during a long `council.sh` run, use job mode: it starts member runs in parallel in the background and lets you poll progress with short commands (useful for TODO/plan updates).
+One-shot (runs job → waits → prints results → cleans):
 
 ```bash
-JOB_DIR=$(.codex/skills/agent-council/scripts/council-job.sh start "Your question here")
-.codex/skills/agent-council/scripts/council-job.sh status --text "$JOB_DIR"
-.codex/skills/agent-council/scripts/council-job.sh results "$JOB_DIR"
-.codex/skills/agent-council/scripts/council-job.sh clean "$JOB_DIR"
+.codex/skills/agent-council/scripts/council.sh "Your question here"
 ```
 
 ## Example

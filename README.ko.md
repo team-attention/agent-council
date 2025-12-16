@@ -69,7 +69,7 @@ npx github:team-attention/agent-council --target both
 /plugin install agent-council@team-attention-plugins
 ```
 
-참고(플러그인 설치): **Job Mode는 Node.js가 필요**하며, Claude Code 플러그인은 Node를 번들/자동 설치할 수 없습니다. Node를 별도로 설치하세요(예: macOS `brew install node`). Node 없이 쓰고 싶다면 순수 shell 스크립트인 `council.sh` 모드를 사용하세요.
+참고(플러그인 설치): **Agent Council은 Node.js가 필요**하며, Claude Code 플러그인은 Node를 번들/자동 설치할 수 없습니다. Node를 별도로 설치하세요(예: macOS `brew install node`).
 
 ### 2. Agent CLI 설치
 
@@ -139,20 +139,16 @@ council:
 ### 스크립트 직접 실행
 
 ```bash
-.claude/skills/agent-council/scripts/council.sh "질문 내용"
-# 또는
-.codex/skills/agent-council/scripts/council.sh "질문 내용"
+JOB_DIR=$(.codex/skills/agent-council/scripts/council.sh start "질문 내용")
+.codex/skills/agent-council/scripts/council.sh status --text "$JOB_DIR"
+.codex/skills/agent-council/scripts/council.sh results "$JOB_DIR"
+.codex/skills/agent-council/scripts/council.sh clean "$JOB_DIR"
 ```
 
-### 진행상태 표시 (Job Mode)
-
-호스트 UI에서 긴 `council.sh` 실행이 “실시간으로 갱신되는 느낌”이 약하다면, Job Mode를 쓰면 됩니다. 멤버 실행을 백그라운드에서 병렬로 돌리고, 짧은 명령으로 진행상태를 폴링할 수 있어 TODO/plan 업데이트에 유리합니다.
+원샷 실행(잡 시작 → 대기 → 결과 출력 → 정리):
 
 ```bash
-JOB_DIR=$(.codex/skills/agent-council/scripts/council-job.sh start "질문 내용")
-.codex/skills/agent-council/scripts/council-job.sh status --text "$JOB_DIR"
-.codex/skills/agent-council/scripts/council-job.sh results "$JOB_DIR"
-.codex/skills/agent-council/scripts/council-job.sh clean "$JOB_DIR"
+.codex/skills/agent-council/scripts/council.sh "질문 내용"
 ```
 
 ## 예시

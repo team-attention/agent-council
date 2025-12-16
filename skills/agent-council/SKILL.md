@@ -38,25 +38,16 @@ The Chairman synthesizes all responses and presents the final opinion (usually h
 ### Direct Script Execution
 
 ```bash
-./skills/agent-council/scripts/council.sh "your question here"
+JOB_DIR=$(./skills/agent-council/scripts/council.sh start "your question here")
+./skills/agent-council/scripts/council.sh status --text "$JOB_DIR"
+./skills/agent-council/scripts/council.sh results "$JOB_DIR"
+./skills/agent-council/scripts/council.sh clean "$JOB_DIR"
 ```
 
-### Live Progress (Job Mode)
-
-Some host tools don’t stream stdout/stderr from long-running scripts in a “live terminal” way. Job mode lets you run members in parallel in the background, and poll progress with short commands (good for TODO/plan UIs).
+One-shot (runs job → waits → prints results → cleans):
 
 ```bash
-# 1) Start a background job (returns immediately)
-JOB_DIR=$(./skills/agent-council/scripts/council-job.sh start "your question here")
-
-# 2) Poll progress (repeat as needed)
-./skills/agent-council/scripts/council-job.sh status --text "$JOB_DIR"
-
-# 3) Print collected outputs
-./skills/agent-council/scripts/council-job.sh results "$JOB_DIR"
-
-# 4) Cleanup
-./skills/agent-council/scripts/council-job.sh clean "$JOB_DIR"
+./skills/agent-council/scripts/council.sh "your question here"
 ```
 
 ### Execution via Host Agent
@@ -104,7 +95,7 @@ Council members are configured in `council.config.yaml`. The installer enables o
 
 - Each configured CLI must be installed and authenticated
 - Template includes: Claude CLI, OpenAI Codex CLI, Google Gemini CLI
-- Job mode requires Node.js (plugins can’t bundle or auto-install it)
+- Requires Node.js (plugins can’t bundle or auto-install it)
 
 ### Verify Installation
 
