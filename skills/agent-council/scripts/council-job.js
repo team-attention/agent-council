@@ -219,14 +219,150 @@ function readJsonIfExists(filePath) {
   }
 }
 
+function sleepMs(ms) {
+  const msNum = Number(ms);
+  if (!Number.isFinite(msNum) || msNum <= 0) return;
+  const sab = new SharedArrayBuffer(4);
+  const view = new Int32Array(sab);
+  Atomics.wait(view, 0, 0, Math.trunc(msNum));
+}
+
+function computeTerminalDoneCount(counts) {
+  const c = counts || {};
+  return (
+    Number(c.done || 0) +
+    Number(c.missing_cli || 0) +
+    Number(c.error || 0) +
+    Number(c.timed_out || 0) +
+    Number(c.canceled || 0)
+  );
+}
+
+function asCodexStepStatus(value) {
+  const v = String(value || '');
+  if (v === 'pending' || v === 'in_progress' || v === 'completed') return v;
+  return 'pending';
+}
+
+function buildCouncilUiPayload(statusPayload) {
+  const counts = statusPayload.counts || {};
+  const done = computeTerminalDoneCount(counts);
+  const total = Number(counts.total || 0);
+  const isDone = String(statusPayload.overallState || '') === 'done';
+
+  const queued = Number(counts.queued || 0);
+
+  // Keep plan UI simple: pending -> completed only (no `in_progress`).
+  const dispatchStatus = asCodexStepStatus(queued === 0 ? 'completed' : 'pending');
+
+  const members = Array.isArray(statusPayload.members) ? statusPayload.members : [];
+  const sortedMembers = members
+    .map((m) => ({
+      member: m && m.member != null ? String(m.member) : '',
+      state: m && m.state != null ? String(m.state) : 'unknown',
+      exitCode: m && m.exitCode != null ? m.exitCode : null,
+    }))
+    .filter((m) => m.member)
+    .sort((a, b) => a.member.localeCompare(b.member));
+
+  const terminalStates = new Set(['done', 'missing_cli', 'error', 'timed_out', 'canceled']);
+  const memberSteps = sortedMembers.map((m) => {
+    const state = m.state || 'unknown';
+    const isTerminal = terminalStates.has(state);
+    const status = asCodexStepStatus(isTerminal ? 'completed' : 'pending');
+
+    const label = `[Council] Ask ${m.member}`;
+    return { label, status };
+  });
+
+  const synthStatus = asCodexStepStatus(isDone ? 'completed' : 'pending');
+
+  const codexPlan = [
+    { step: `[Council] Prompt dispatch`, status: dispatchStatus },
+    ...memberSteps.map((s) => ({ step: s.label, status: s.status })),
+    { step: `[Council] Synthesize`, status: synthStatus },
+  ];
+
+  const claudeTodos = [
+    {
+      content: `[Council] Prompt dispatch`,
+      status: dispatchStatus,
+      activeForm: dispatchStatus === 'completed' ? 'Dispatched council prompts' : 'Dispatching council prompts',
+    },
+    ...memberSteps.map((s) => ({
+      content: s.label,
+      status: s.status,
+      activeForm: s.status === 'completed' ? 'Finished' : 'Awaiting response',
+    })),
+    {
+      content: `[Council] Synthesize`,
+      status: synthStatus,
+      activeForm: synthStatus === 'completed' ? 'Council results ready' : 'Waiting to synthesize',
+    },
+  ];
+
+  return {
+    progress: { done, total, overallState: String(statusPayload.overallState || '') },
+    codex: { update_plan: { plan: codexPlan } },
+    claude: { todo_write: { todos: claudeTodos } },
+  };
+}
+
+function computeStatusPayload(jobDir) {
+  const resolvedJobDir = path.resolve(jobDir);
+  if (!fs.existsSync(resolvedJobDir)) exitWithError(`jobDir not found: ${resolvedJobDir}`);
+
+  const jobMeta = readJsonIfExists(path.join(resolvedJobDir, 'job.json'));
+  if (!jobMeta) exitWithError(`job.json not found: ${path.join(resolvedJobDir, 'job.json')}`);
+
+  const membersRoot = path.join(resolvedJobDir, 'members');
+  if (!fs.existsSync(membersRoot)) exitWithError(`members folder not found: ${membersRoot}`);
+
+  const members = [];
+  for (const entry of fs.readdirSync(membersRoot)) {
+    const statusPath = path.join(membersRoot, entry, 'status.json');
+    const status = readJsonIfExists(statusPath);
+    if (status) members.push({ safeName: entry, ...status });
+  }
+
+  const totals = { queued: 0, running: 0, done: 0, error: 0, missing_cli: 0, timed_out: 0, canceled: 0 };
+  for (const m of members) {
+    const state = String(m.state || 'unknown');
+    if (Object.prototype.hasOwnProperty.call(totals, state)) totals[state]++;
+  }
+
+  const allDone = totals.running === 0 && totals.queued === 0;
+  const overallState = allDone ? 'done' : totals.running > 0 ? 'running' : 'queued';
+
+  return {
+    jobDir: resolvedJobDir,
+    id: jobMeta.id || null,
+    chairmanRole: jobMeta.chairmanRole || null,
+    overallState,
+    counts: { total: members.length, ...totals },
+    members: members
+      .map((m) => ({
+        member: m.member,
+        state: m.state,
+        startedAt: m.startedAt || null,
+        finishedAt: m.finishedAt || null,
+        exitCode: m.exitCode != null ? m.exitCode : null,
+        message: m.message || null,
+      }))
+      .sort((a, b) => String(a.member).localeCompare(String(b.member))),
+  };
+}
+
 function parseArgs(argv) {
   const args = argv.slice(2);
   const out = { _: [] };
   const booleanFlags = new Set([
     'json',
     'text',
+    'checklist',
     'help',
     'h',
+    'verbose',
     'include-chairman',
     'exclude-chairman',
   ]);
@@ -269,7 +405,8 @@ function printHelp() {
 
 Usage:
   council-job.sh start [--config path] [--chairman auto|claude|codex|...] [--jobs-dir path] [--json] "question"
-  council-job.sh status [--json|--text] <jobDir>
+  council-job.sh status [--json|--text|--checklist] [--verbose] <jobDir>
+  council-job.sh wait [--cursor CURSOR] [--bucket auto|N] [--interval-ms N] [--timeout-ms N] <jobDir>
   council-job.sh results [--json] <jobDir>
   council-job.sh stop <jobDir>
   council-job.sh clean <jobDir>
@@ -277,6 +414,7 @@ Usage:
 Notes:
   - start returns immediately and runs members in parallel via detached Node workers
   - poll status with repeated short calls to update TODO/plan UIs in host agents
+  - wait prints JSON by default and blocks until meaningful progress occurs, so you don't spam tool cells
 `);
 }
 
@@ -384,57 +522,182 @@ function cmdStart(options, prompt) {
 }
 
 function cmdStatus(options, jobDir) {
-  const resolvedJobDir = path.resolve(jobDir);
-  const jobMeta = readJsonIfExists(path.join(resolvedJobDir, 'job.json'));
-  const membersRoot = path.join(resolvedJobDir, 'members');
+  const payload = computeStatusPayload(jobDir);
 
-  const members = [];
-  if (fs.existsSync(membersRoot)) {
-    for (const entry of fs.readdirSync(membersRoot)) {
-      const statusPath = path.join(membersRoot, entry, 'status.json');
-      const status = readJsonIfExists(statusPath);
-      if (status) members.push({ safeName: entry, ...status });
+  const wantChecklist = Boolean(options.checklist) && !options.json;
+  if (wantChecklist) {
+    const done = computeTerminalDoneCount(payload.counts);
+    const headerId = payload.id ? ` (${payload.id})` : '';
+    process.stdout.write(`Agent Council${headerId}\n`);
+    process.stdout.write(
+      `Progress: ${done}/${payload.counts.total} done  (running ${payload.counts.running}, queued ${payload.counts.queued})\n`
+    );
+    for (const m of payload.members) {
+      const state = String(m.state || '');
+      const mark =
+        state === 'done'
+          ? '[x]'
+          : state === 'running' || state === 'queued'
+            ? '[ ]'
+            : state
+              ? '[!]'
+              : '[ ]';
+      const exitInfo = m.exitCode != null ? ` (exit ${m.exitCode})` : '';
+      process.stdout.write(`${mark} ${m.member} — ${state}${exitInfo}\n`);
     }
+    return;
   }
-
-  const totals = { queued: 0, running: 0, done: 0, error: 0, missing_cli: 0, timed_out: 0, canceled: 0 };
-  for (const m of members) {
-    const state = String(m.state || 'unknown');
-    if (Object.prototype.hasOwnProperty.call(totals, state)) totals[state]++;
-  }
-
-  const allDone = members.length > 0 && totals.running === 0 && totals.queued === 0;
-  const overallState = allDone ? 'done' : totals.running > 0 ? 'running' : 'queued';
-
-  const payload = {
-    jobDir: resolvedJobDir,
-    id: jobMeta ? jobMeta.id : null,
-    chairmanRole: jobMeta ? jobMeta.chairmanRole : null,
-    overallState,
-    counts: { total: members.length, ...totals },
-    members: members
-      .map((m) => ({
-        member: m.member,
-        state: m.state,
-        startedAt: m.startedAt || null,
-        finishedAt: m.finishedAt || null,
-        exitCode: m.exitCode != null ? m.exitCode : null,
-        message: m.message || null,
-      }))
-      .sort((a, b) => String(a.member).localeCompare(String(b.member))),
-  };
 
   const wantText = Boolean(options.text) && !options.json;
   if (wantText) {
-    const done = payload.counts.done + payload.counts.missing_cli + payload.counts.error + payload.counts.timed_out + payload.counts.canceled;
+    const done = computeTerminalDoneCount(payload.counts);
     process.stdout.write(`members ${done}/${payload.counts.total} done; running=${payload.counts.running} queued=${payload.counts.queued}\n`);
-    for (const m of payload.members) {
-      process.stdout.write(`- ${m.member}: ${m.state}${m.exitCode != null ? ` (exit ${m.exitCode})` : ''}\n`);
+    if (options.verbose) {
+      for (const m of payload.members) {
+        process.stdout.write(`- ${m.member}: ${m.state}${m.exitCode != null ? ` (exit ${m.exitCode})` : ''}\n`);
+      }
     }
     return;
   }
 
   process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
+}
+
+function parseWaitCursor(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const parts = raw.split(':');
+  const version = parts[0];
+  if (version === 'v1' && parts.length === 4) {
+    const bucketSize = Number(parts[1]);
+    const doneBucket = Number(parts[2]);
+    const isDone = parts[3] === '1';
+    if (!Number.isFinite(bucketSize) || bucketSize <= 0) return null;
+    if (!Number.isFinite(doneBucket) || doneBucket < 0) return null;
+    return { version, bucketSize, dispatchBucket: 0, doneBucket, isDone };
+  }
+  if (version === 'v2' && parts.length === 5) {
+    const bucketSize = Number(parts[1]);
+    const dispatchBucket = Number(parts[2]);
+    const doneBucket = Number(parts[3]);
+    const isDone = parts[4] === '1';
+    if (!Number.isFinite(bucketSize) || bucketSize <= 0) return null;
+    if (!Number.isFinite(dispatchBucket) || dispatchBucket < 0) return null;
+    if (!Number.isFinite(doneBucket) || doneBucket < 0) return null;
+    return { version, bucketSize, dispatchBucket, doneBucket, isDone };
+  }
+  return null;
+}
+
+function formatWaitCursor(bucketSize, dispatchBucket, doneBucket, isDone) {
+  return `v2:${bucketSize}:${dispatchBucket}:${doneBucket}:${isDone ? 1 : 0}`;
+}
+
+function asWaitPayload(statusPayload) {
+  const members = Array.isArray(statusPayload.members) ? statusPayload.members : [];
+  return {
+    jobDir: statusPayload.jobDir,
+    id: statusPayload.id,
+    chairmanRole: statusPayload.chairmanRole,
+    overallState: statusPayload.overallState,
+    counts: statusPayload.counts,
+    members: members.map((m) => ({
+      member: m.member,
+      state: m.state,
+      exitCode: m.exitCode != null ? m.exitCode : null,
+      message: m.message || null,
+    })),
+    ui: buildCouncilUiPayload(statusPayload),
+  };
+}
+
+function resolveBucketSize(options, total, prevCursor) {
+  const raw = options.bucket != null ? options.bucket : options['bucket-size'];
+
+  if (raw == null || raw === true) {
+    if (prevCursor && prevCursor.bucketSize) return prevCursor.bucketSize;
+  } else {
+    const asString = String(raw).trim().toLowerCase();
+    if (asString !== 'auto') {
+      const num = Number(asString);
+      if (!Number.isFinite(num) || num <= 0) exitWithError(`wait: invalid --bucket: ${raw}`);
+      return Math.trunc(num);
+    }
+  }
+
+  // Auto-bucket: target ~5 updates total.
+  const totalNum = Number(total || 0);
+  if (!Number.isFinite(totalNum) || totalNum <= 0) return 1;
+  return Math.max(1, Math.ceil(totalNum / 5));
+}
+
+function cmdWait(options, jobDir) {
+  const resolvedJobDir = path.resolve(jobDir);
+  const cursorFilePath = path.join(resolvedJobDir, '.wait_cursor');
+  const prevCursorRaw =
+    options.cursor != null
+      ? String(options.cursor)
+      : fs.existsSync(cursorFilePath)
+        ? String(fs.readFileSync(cursorFilePath, 'utf8')).trim()
+        : '';
+  const prevCursor = parseWaitCursor(prevCursorRaw);
+
+  const intervalMsRaw = options['interval-ms'] != null ? options['interval-ms'] : 250;
+  const intervalMs = Math.max(50, Math.trunc(Number(intervalMsRaw)));
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) exitWithError(`wait: invalid --interval-ms: ${intervalMsRaw}`);
+
+  const timeoutMsRaw = options['timeout-ms'] != null ? options['timeout-ms'] : 0;
+  const timeoutMs = Math.trunc(Number(timeoutMsRaw));
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 0) exitWithError(`wait: invalid --timeout-ms: ${timeoutMsRaw}`);
+
+  // Always read once to decide bucket sizing and (when no cursor is given) return immediately.
+  let payload = computeStatusPayload(jobDir);
+  const bucketSize = resolveBucketSize(options, payload.counts.total, prevCursor);
+
+  const doneCount = computeTerminalDoneCount(payload.counts);
+  const isDone = payload.overallState === 'done';
+  const total = Number(payload.counts.total || 0);
+  const queued = Number(payload.counts.queued || 0);
+  const dispatchBucket = queued === 0 && total > 0 ? 1 : 0;
+  const doneBucket = Math.floor(doneCount / bucketSize);
+  const cursor = formatWaitCursor(bucketSize, dispatchBucket, doneBucket, isDone);
+
+  if (!prevCursor) {
+    fs.writeFileSync(cursorFilePath, cursor, 'utf8');
+    process.stdout.write(`${JSON.stringify({ ...asWaitPayload(payload), cursor }, null, 2)}\n`);
+    return;
+  }
+
+  const start = Date.now();
+  while (cursor === prevCursorRaw) {
+    if (timeoutMs > 0 && Date.now() - start >= timeoutMs) break;
+    sleepMs(intervalMs);
+    payload = computeStatusPayload(jobDir);
+    const d = computeTerminalDoneCount(payload.counts);
+    const doneFlag = payload.overallState === 'done';
+    const totalCount = Number(payload.counts.total || 0);
+    const queuedCount = Number(payload.counts.queued || 0);
+    const dispatchB = queuedCount === 0 && totalCount > 0 ? 1 : 0;
+    const doneB = Math.floor(d / bucketSize);
+    const nextCursor = formatWaitCursor(bucketSize, dispatchB, doneB, doneFlag);
+    if (nextCursor !== prevCursorRaw) {
+      fs.writeFileSync(cursorFilePath, nextCursor, 'utf8');
+      process.stdout.write(`${JSON.stringify({ ...asWaitPayload(payload), cursor: nextCursor }, null, 2)}\n`);
+      return;
+    }
+  }
+
+  // Timeout: return current state (cursor may be unchanged).
+  const finalPayload = computeStatusPayload(jobDir);
+  const finalDone = computeTerminalDoneCount(finalPayload.counts);
+  const finalDoneFlag = finalPayload.overallState === 'done';
+  const finalTotal = Number(finalPayload.counts.total || 0);
+  const finalQueued = Number(finalPayload.counts.queued || 0);
+  const finalDispatchBucket = finalQueued === 0 && finalTotal > 0 ? 1 : 0;
+  const finalDoneBucket = Math.floor(finalDone / bucketSize);
+  const finalCursor = formatWaitCursor(bucketSize, finalDispatchBucket, finalDoneBucket, finalDoneFlag);
+  fs.writeFileSync(cursorFilePath, finalCursor, 'utf8');
+  process.stdout.write(`${JSON.stringify({ ...asWaitPayload(finalPayload), cursor: finalCursor }, null, 2)}\n`);
 }
 
 function cmdResults(options, jobDir) {
@@ -544,6 +807,12 @@ function main() {
     const jobDir = rest[0];
     if (!jobDir) exitWithError('status: missing jobDir');
     cmdStatus(options, jobDir);
+    return;
+  }
+  if (command === 'wait') {
+    const jobDir = rest[0];
+    if (!jobDir) exitWithError('wait: missing jobDir');
+    cmdWait(options, jobDir);
     return;
   }
   if (command === 'results') {
