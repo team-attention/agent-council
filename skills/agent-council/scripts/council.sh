@@ -94,140 +94,34 @@ if in_host_agent_context; then
   exec "$JOB_SCRIPT" wait "$JOB_DIR"
 fi
 
-SHOW_PROGRESS="${COUNCIL_PROGRESS:-1}"
-TUI_MODE="${COUNCIL_TUI:-auto}"
-TUI_MODE_NORM="$(printf '%s' "$TUI_MODE" | tr '[:upper:]' '[:lower:]')"
-if [ -z "$TUI_MODE_NORM" ]; then
-  TUI_MODE_NORM="auto"
-fi
-USE_CHECKLIST="0"
-CHECKLIST_ACTIVE="0"
-LAST_PROGRESS_LINE=""
-LAST_CHECKLIST_SCREEN=""
-LAST_CHECKLIST_KEY=""
-CHECKLIST_LINES="0"
+echo "council: started ${JOB_DIR}" >&2
 
-checklist_enter() {
-  # Hide cursor for nicer redraws when ANSI is supported
-  if can_use_ansi; then
-    CHECKLIST_ACTIVE="1"
-    printf '\033[?25l\033[0m' >&2
+cleanup_on_signal() {
+  if [ -n "${JOB_DIR:-}" ] && [ -d "$JOB_DIR" ]; then
+    "$JOB_SCRIPT" stop "$JOB_DIR" >/dev/null 2>&1 || true
+    "$JOB_SCRIPT" clean "$JOB_DIR" >/dev/null 2>&1 || true
   fi
+  exit 130
 }
 
-checklist_exit() {
-  if [ "$CHECKLIST_ACTIVE" = "1" ]; then
-    CHECKLIST_ACTIVE="0"
-    printf '\033[?25h\033[0m\n' >&2
-  fi
-}
-
-checklist_render() {
-  local screen="$1"
-  case "$screen" in
-    *$'\n') ;;
-    *) screen="${screen}"$'\n' ;;
-  esac
-  if can_use_ansi; then
-    if [ "${CHECKLIST_LINES:-0}" -gt 0 ]; then
-      printf '\033[%dA' "$CHECKLIST_LINES" >&2
-    fi
-    printf '\033[J' >&2
-    printf '%s' "$screen" >&2
-    CHECKLIST_LINES="$(printf '%s' "$screen" | awk 'END{print NR}')"
-  else
-    printf '%s' "$screen" >&2
-  fi
-}
-
-ui_cleanup() {
-  checklist_exit
-}
-
-can_use_ansi() {
-  # Requires a real terminal on stderr; some host UIs may not render cursor movement/clears.
-  [ -t 2 ] && [ "${TERM:-dumb}" != "dumb" ]
-}
-
-if [ "$SHOW_PROGRESS" != "0" ]; then
-  case "$TUI_MODE_NORM" in
-    0|false|no|n|off)
-      USE_CHECKLIST="0"
-      ;;
-    checklist|checks|checkboxes)
-      USE_CHECKLIST="1"
-      ;;
-    1|true|yes|y|on|auto|*)
-      USE_CHECKLIST="1"
-      ;;
-  esac
-fi
-
-if [ "$USE_CHECKLIST" = "1" ]; then
-  trap ui_cleanup EXIT INT TERM
-  checklist_enter
-fi
+trap cleanup_on_signal INT TERM
 
 while true; do
-  STATUS_JSON="$("$JOB_SCRIPT" status --json "$JOB_DIR")"
-  if [ "$USE_CHECKLIST" = "1" ]; then
-    STATUS_INFO="$(printf '%s' "$STATUS_JSON" | node -e '
+  WAIT_JSON="$("$JOB_SCRIPT" wait "$JOB_DIR")"
+  OVERALL="$(printf '%s' "$WAIT_JSON" | node -e '
 const fs=require("fs");
 const d=JSON.parse(fs.readFileSync(0,"utf8"));
-const counts=d.counts||{};
-const done=(counts.done||0)+(counts.missing_cli||0)+(counts.error||0)+(counts.timed_out||0)+(counts.canceled||0);
-const total=counts.total||0;
-const members=(d.members||[]).slice().sort((a,b)=>String(a.member).localeCompare(String(b.member)));
-const key=`${done}/${total}`;
-const mark=(state)=>state==="done" ? "[x]" : (state==="running"||state==="queued") ? "[ ]" : "[!]";
-const lines=[];
-lines.push("Agent Council");
-if (d.id) lines.push(`Job: ${d.id}`);
-lines.push(`Progress: ${done}/${total} done  (running ${counts.running||0}, queued ${counts.queued||0})`);
-for (const m of members) {
-  const state=String(m.state||"");
-  const display=(state==="running"||state==="queued") ? "working" : state;
-  lines.push(`${mark(state)} ${m.member} — ${display}${m.exitCode!=null ? ` (exit ${m.exitCode})` : ""}`);
-}
-process.stdout.write(String(d.overallState||"") + "\n" + key + "\n" + lines.join("\n") + "\n");
+process.stdout.write(String(d.overallState||""));
 ')"
-    OVERALL="${STATUS_INFO%%$'\n'*}"
-    REST="${STATUS_INFO#*$'\n'}"
-    CHECKLIST_KEY="${REST%%$'\n'*}"
-    CHECKLIST_SCREEN="${REST#*$'\n'}"
-    if [ "$CHECKLIST_KEY" != "$LAST_CHECKLIST_KEY" ]; then
-      checklist_render "$CHECKLIST_SCREEN"
-      LAST_CHECKLIST_KEY="$CHECKLIST_KEY"
-      LAST_CHECKLIST_SCREEN="$CHECKLIST_SCREEN"
-    fi
-  else
-    STATUS_INFO="$(printf '%s' "$STATUS_JSON" | node -e '
-const fs=require("fs");
-const d=JSON.parse(fs.readFileSync(0,"utf8"));
-const counts=d.counts||{};
-const done=(counts.done||0)+(counts.missing_cli||0)+(counts.error||0)+(counts.timed_out||0)+(counts.canceled||0);
-const total=counts.total||0;
-const summary=`council: ${done}/${total} done; running=${counts.running||0} queued=${counts.queued||0}`;
-process.stdout.write(String(d.overallState||"") + "\n" + summary);
-')"
-    OVERALL="${STATUS_INFO%%$'\n'*}"
-    PROGRESS_LINE="${STATUS_INFO#*$'\n'}"
 
-    if [ "$SHOW_PROGRESS" != "0" ] && [ "$PROGRESS_LINE" != "$LAST_PROGRESS_LINE" ]; then
-      echo "$PROGRESS_LINE" >&2
-      LAST_PROGRESS_LINE="$PROGRESS_LINE"
-    fi
-  fi
+  "$JOB_SCRIPT" status --text "$JOB_DIR" >&2
+
   if [ "$OVERALL" = "done" ]; then
     break
   fi
-  sleep 0.5
 done
 
-if [ "$USE_CHECKLIST" = "1" ]; then
-  checklist_exit
-  trap - EXIT INT TERM
-fi
+trap - INT TERM
 
 "$JOB_SCRIPT" results "$JOB_DIR"
 "$JOB_SCRIPT" clean "$JOB_DIR" >/dev/null

@@ -55,7 +55,7 @@ function parseCouncilConfig(configPath) {
         { name: 'codex', command: 'codex exec', emoji: '🤖', color: 'BLUE' },
         { name: 'gemini', command: 'gemini', emoji: '💎', color: 'GREEN' },
       ],
-      settings: { exclude_chairman_from_members: true, timeout: 120, parallel: true },
+      settings: { exclude_chairman_from_members: true, timeout: 120 },
     },
   };
 

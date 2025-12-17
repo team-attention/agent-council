@@ -159,9 +159,8 @@ Note: In host-agent tool UIs (Codex CLI / Claude Code), one-shot does **not** bl
 
 #### Progress
 
-- In a real terminal, one-shot shows a multi-line checklist by default (in a single run).
+- In a real terminal, one-shot prints periodic progress lines as members complete.
 - In host-agent tool UIs, one-shot returns `wait` JSON (so the host can update native plan/todo UIs).
-- Use `COUNCIL_TUI=0` for plain progress lines, or `COUNCIL_PROGRESS=0` to disable progress output.
 - Job mode is still available for scripting (`start` → `status` → `results` → `clean`).
 
 ## Example

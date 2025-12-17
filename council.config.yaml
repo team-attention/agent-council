@@ -36,8 +36,6 @@ council:
 
   # Execution settings
   settings:
-    parallel: true          # Run agents in parallel
-    timeout: 120            # (Reserved) Timeout in seconds per agent (not enforced by the script yet)
-    show_thinking: true     # Show "Thinking..." status
+    timeout: 120            # Timeout seconds per agent (0 to disable)
     exclude_chairman_from_members: true  # Avoid calling the chairman as a member by default
     # synthesize: true       # Force Stage 3 synthesis inside council.sh (requires chairman.command or --chairman codex/gemini)
