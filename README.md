@@ -145,11 +145,24 @@ JOB_DIR=$(.codex/skills/agent-council/scripts/council.sh start "Your question he
 .codex/skills/agent-council/scripts/council.sh clean "$JOB_DIR"
 ```
 
+Tip: add `--verbose` to `status --text` to include per-member lines.
+Tip: use `status --checklist` for a compact checkbox view (handy in Codex/Claude tool cells).
+Tip: use `wait` to block until meaningful progress without spamming tool cells (prints JSON, persists a cursor automatically; auto-batches to a small number of updates (typically ~5–10); `--bucket 1` for every completion).
+
 One-shot (runs job → waits → prints results → cleans):
 
 ```bash
 .codex/skills/agent-council/scripts/council.sh "Your question here"
 ```
+
+Note: In host-agent tool UIs (Codex CLI / Claude Code), one-shot does **not** block. It returns a single `wait` JSON payload so the host agent can update native plan/todo UIs. Continue with `wait` → native UI update → `results` → `clean`.
+
+#### Progress
+
+- In a real terminal, one-shot shows a multi-line checklist by default (in a single run).
+- In host-agent tool UIs, one-shot returns `wait` JSON (so the host can update native plan/todo UIs).
+- Use `COUNCIL_TUI=0` for plain progress lines, or `COUNCIL_PROGRESS=0` to disable progress output.
+- Job mode is still available for scripting (`start` → `status` → `results` → `clean`).
 
 ## Example
 

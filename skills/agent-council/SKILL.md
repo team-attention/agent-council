@@ -40,6 +40,8 @@ The Chairman synthesizes all responses and presents the final opinion (usually h
 ```bash
 JOB_DIR=$(./skills/agent-council/scripts/council.sh start "your question here")
 ./skills/agent-council/scripts/council.sh status --text "$JOB_DIR"
+./skills/agent-council/scripts/council.sh status --checklist "$JOB_DIR"
+./skills/agent-council/scripts/council.sh wait "$JOB_DIR" # returns JSON + persists a cursor for blocking waits
 ./skills/agent-council/scripts/council.sh results "$JOB_DIR"
 ./skills/agent-council/scripts/council.sh clean "$JOB_DIR"
 ```
@@ -50,11 +52,44 @@ One-shot (runs job → waits → prints results → cleans):
 ./skills/agent-council/scripts/council.sh "your question here"
 ```
 
-### Execution via Host Agent
+Note:
+- In host-agent tool UIs (Codex CLI / Claude Code), one-shot does **not** block (so the host can update native plan/todo UIs). It returns a single `wait` JSON payload, and the host should continue with `wait` → native UI update → `results` → `clean`.
 
-1. Request council summon from your host agent (Claude Code / Codex CLI)
-2. The host agent executes the script to collect each Agent's opinion
-3. The host agent synthesizes as Chairman and presents the final recommendation
+### Execution via Host Agent (progress, no tool-cell spam)
+
+When using this skill inside a host agent (Codex CLI / Claude Code), some UIs do not stream long-running tool output. Prefer **job mode + `wait`** so the host agent can update a native checklist (e.g. `update_plan`) with only a few tool calls.
+
+```bash
+JOB_DIR=$(./skills/agent-council/scripts/council.sh start "your question here")
+./skills/agent-council/scripts/council.sh wait "$JOB_DIR" # returns immediately (seeds cursor + JSON payload)
+# Host agent MUST now call its native checklist tool:
+# - Codex CLI: update_plan(.ui.codex.update_plan.plan)
+# - Claude Code: TodoWrite(.ui.claude.todo_write.todos)
+./skills/agent-council/scripts/council.sh wait "$JOB_DIR" # blocks until meaningful progress
+# Host agent updates the native checklist again after each wait return
+./skills/agent-council/scripts/council.sh results "$JOB_DIR"
+./skills/agent-council/scripts/council.sh clean "$JOB_DIR"
+```
+
+Notes:
+- `wait` prints JSON, remembers its cursor in `<jobDir>/.wait_cursor`, and returns only when progress meaningfully changes.
+- Default `wait` auto-batches to a small number of updates (typically ~5–10 total; `--bucket 1` for every completion).
+- One-shot prints progress in a normal terminal, but may not render live inside some host agent tool UIs.
+
+**Recommended host-agent checklist strategy (`update_plan`):**
+- `wait` JSON includes a pre-built council checklist you can feed into native UIs:
+  - Codex CLI: `update_plan` input at `.ui.codex.update_plan.plan`
+  - Claude Code: `TodoWrite` input at `.ui.claude.todo_write.todos`
+- IMPORTANT: The native checklist UI can only be updated by the host agent. Shell scripts cannot force it to appear.
+- IMPORTANT (Codex): Don’t run a blocking `wait` call before calling `update_plan` at least once, or the Plan UI won’t show until the wait returns.
+- Preserve any existing items as-is, and append the `[Council]` section (so the user’s TODO list doesn’t “disappear”).
+- The default council checklist is intentionally small (`N + 2` items):
+  - `[Council] Prompt dispatch`
+  - One line per member: `[Council] Ask <member>` (checkbox marks completion)
+  - `[Council] Synthesize`
+  - (With the default config, `N` is usually 2 because the chairman is excluded, so you’ll typically see 4 items total.)
+- Default checklist uses only `pending` → `completed` (no `in_progress`). If you extend it, keep at most one `in_progress` at a time (Codex plan UI expects this).
+- Don’t run a long `while true` loop in a single shell tool call; update the UI only after each `wait` return (auto-batched), then restore the original list (or remove the `[Council]` section) when finished.
 
 ## Examples
 

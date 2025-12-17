@@ -145,11 +145,24 @@ JOB_DIR=$(.codex/skills/agent-council/scripts/council.sh start "질문 내용")
 .codex/skills/agent-council/scripts/council.sh clean "$JOB_DIR"
 ```
 
+팁: `status --text`에 `--verbose`를 추가하면 멤버별 상태 라인이 함께 출력됩니다.
+팁: `status --checklist`는 체크리스트 형태로 간단히 보여줍니다(Codex/Claude tool cell에 유용).
+팁: `wait`를 쓰면 “의미 있는 진행”이 있을 때만 반환해서 tool cell 스팸을 줄일 수 있습니다(JSON 출력, 커서는 자동으로 저장/갱신; 기본값은 멤버 수에 따라 대략 ~5~10번 수준으로 자동 배치, `--bucket 1`이면 매 완료마다 반환).
+
 원샷 실행(잡 시작 → 대기 → 결과 출력 → 정리):
 
 ```bash
 .codex/skills/agent-council/scripts/council.sh "질문 내용"
 ```
+
+참고: 호스트 에이전트 도구 UI(Codex CLI / Claude Code)에서는 원샷이 **블로킹하지 않습니다**. 네이티브 plan/todo UI를 갱신할 수 있도록 `wait` JSON을 한 번 반환하고 종료하며, 이후 `wait` → 네이티브 UI 갱신 → `results` → `clean` 순서로 진행하세요.
+
+#### 진행상황
+
+- 실제 터미널에서는 원샷이 기본적으로 멀티라인 체크리스트를 표시합니다(한 번의 실행에서 갱신).
+- 호스트 에이전트 도구 UI에서는 원샷이 `wait` JSON을 반환합니다(네이티브 plan/todo UI 갱신 목적).
+- `COUNCIL_TUI=0`이면 텍스트 진행상황 라인, `COUNCIL_PROGRESS=0`이면 진행상황 출력 자체를 끕니다.
+- 스크립팅이 필요하면 job mode(`start` → `status` → `results` → `clean`)도 사용할 수 있습니다.
 
 ## 예시
 
