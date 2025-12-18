@@ -162,8 +162,10 @@ function main() {
   if (child.stderr) child.stderr.pipe(errStream);
 
   let timeoutHandle = null;
+  let timeoutTriggered = false;
   if (Number.isFinite(timeoutSec) && timeoutSec > 0) {
     timeoutHandle = setTimeout(() => {
+      timeoutTriggered = true;
       try {
         process.kill(child.pid, 'SIGTERM');
       } catch {
@@ -199,11 +201,12 @@ function main() {
 
   child.on('exit', (code, signal) => {
     if (timeoutHandle) clearTimeout(timeoutHandle);
-    const timedOut = signal === 'SIGTERM' && Number.isFinite(timeoutSec) && timeoutSec > 0;
+    const timedOut = Boolean(timeoutTriggered) && signal === 'SIGTERM';
+    const canceled = !timedOut && signal === 'SIGTERM';
     finalize({
       member,
-      state: timedOut ? 'timed_out' : code === 0 ? 'done' : 'error',
-      message: timedOut ? `Timed out after ${timeoutSec}s` : null,
+      state: timedOut ? 'timed_out' : canceled ? 'canceled' : code === 0 ? 'done' : 'error',
+      message: timedOut ? `Timed out after ${timeoutSec}s` : canceled ? 'Canceled' : null,
       finishedAt: new Date().toISOString(),
       command,
       exitCode: typeof code === 'number' ? code : null,
@@ -217,4 +220,3 @@ function main() {
 if (require.main === module) {
   main();
 }
-
