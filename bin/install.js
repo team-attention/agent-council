@@ -15,6 +15,7 @@ const packageRoot = path.resolve(__dirname, '..');
 const targetDir = process.cwd();
 const claudeDir = path.join(targetDir, '.claude');
 const codexDir = path.join(targetDir, '.codex');
+const yamlModuleDir = path.dirname(require.resolve('yaml/package.json'));
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -140,6 +141,14 @@ try {
       copyRecursive(skillsSrc, install.skillsDest);
       console.log(`${GREEN}  ✓ ${install.displayPath}${NC}`);
     }
+
+    // Ship runtime dependencies needed by the skill at execution time.
+    const runtimeModulesDir = path.join(install.skillsDest, 'node_modules');
+    if (!fs.existsSync(runtimeModulesDir)) fs.mkdirSync(runtimeModulesDir, { recursive: true });
+
+    console.log(`${YELLOW}Installing runtime deps (${install.label})...${NC}`);
+    copyRecursive(yamlModuleDir, path.join(runtimeModulesDir, 'yaml'));
+    console.log(`${GREEN}  ✓ ${install.displayPath}/node_modules/yaml${NC}`);
 
     // Copy config file to skill folder if not exists
     const configDest = path.join(install.skillsDest, 'council.config.yaml');
