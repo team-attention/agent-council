@@ -61,138 +61,70 @@ function parseCouncilConfig(configPath) {
 
   if (!fs.existsSync(configPath)) return fallback;
 
-  const content = fs.readFileSync(configPath, 'utf8');
-  const lines = content.split(/\r?\n/);
-
-  const result = { council: { chairman: {}, members: [], settings: {} } };
-  let inCouncil = false;
-  let councilIndent = 0;
-  let inMembers = false;
-  let membersIndent = 0;
-  let inChairman = false;
-  let chairmanIndent = 0;
-  let inSettings = false;
-  let settingsIndent = 0;
-
-  let currentMember = null;
-
-  function finalizeMember() {
-    if (!currentMember) return;
-    if (currentMember.name && currentMember.command) {
-      result.council.members.push(currentMember);
-    }
-    currentMember = null;
+  let YAML;
+  try {
+    YAML = require('yaml');
+  } catch {
+    exitWithError(
+      [
+        'Missing runtime dependency: yaml',
+        'Your Agent Council installation is out of date.',
+        'Reinstall from your project root:',
+        '  npx github:team-attention/agent-council --target auto',
+      ].join('\n')
+    );
   }
 
-  function lineIndent(line) {
-    const match = line.match(/^(\s*)/);
-    return match ? match[1].length : 0;
+  let parsed;
+  try {
+    parsed = YAML.parse(fs.readFileSync(configPath, 'utf8'));
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    exitWithError(`Invalid YAML in ${configPath}: ${message}`);
   }
 
-  function stripInlineComment(value) {
-    const v = String(value || '').trim();
-    if (!v) return v;
-    const hashIndex = v.indexOf('#');
-    if (hashIndex === -1) return v;
-    return v.slice(0, hashIndex).trim();
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    exitWithError(`Invalid config in ${configPath}: expected a YAML mapping/object at the document root`);
+  }
+  if (!parsed.council) {
+    exitWithError(`Invalid config in ${configPath}: missing required top-level key 'council:'`);
+  }
+  if (typeof parsed.council !== 'object' || Array.isArray(parsed.council)) {
+    exitWithError(`Invalid config in ${configPath}: 'council' must be a mapping/object`);
   }
 
-  function stripQuotes(value) {
-    const v = stripInlineComment(value).trim();
-    if (!v) return v;
-    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-      return v.slice(1, -1);
+  const merged = {
+    council: {
+      chairman: { ...fallback.council.chairman },
+      members: Array.isArray(fallback.council.members) ? [...fallback.council.members] : [],
+      settings: { ...fallback.council.settings },
+    },
+  };
+
+  const council = parsed.council;
+
+  if (council.chairman != null) {
+    if (typeof council.chairman !== 'object' || Array.isArray(council.chairman)) {
+      exitWithError(`Invalid config in ${configPath}: 'council.chairman' must be a mapping/object`);
     }
-    return v;
+    merged.council.chairman = { ...merged.council.chairman, ...council.chairman };
   }
 
-  for (const rawLine of lines) {
-    const line = rawLine.replace(/\t/g, '    ');
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    const indent = lineIndent(line);
-
-    if (!inCouncil) {
-      if (trimmed === 'council:' || trimmed.startsWith('council:')) {
-        inCouncil = true;
-        councilIndent = indent;
-      }
-      continue;
+  if (Object.prototype.hasOwnProperty.call(council, 'members')) {
+    if (!Array.isArray(council.members)) {
+      exitWithError(`Invalid config in ${configPath}: 'council.members' must be a list/array`);
     }
-
-    if (indent <= councilIndent && !trimmed.startsWith('-')) {
-      inCouncil = false;
-      inMembers = false;
-      inChairman = false;
-      inSettings = false;
-      continue;
-    }
-
-    if (inMembers && indent <= membersIndent && !trimmed.startsWith('-')) {
-      finalizeMember();
-      inMembers = false;
-    }
-    if (inChairman && indent <= chairmanIndent) inChairman = false;
-    if (inSettings && indent <= settingsIndent) inSettings = false;
-
-    if (!inMembers && trimmed === 'members:') {
-      inMembers = true;
-      membersIndent = indent;
-      continue;
-    }
-    if (!inChairman && trimmed === 'chairman:') {
-      inChairman = true;
-      chairmanIndent = indent;
-      continue;
-    }
-    if (!inSettings && trimmed === 'settings:') {
-      inSettings = true;
-      settingsIndent = indent;
-      continue;
-    }
-
-    if (inMembers) {
-      const nameMatch = trimmed.match(/^- name:\s*(.+)$/);
-      if (nameMatch) {
-        finalizeMember();
-        currentMember = { name: stripQuotes(nameMatch[1]) };
-        continue;
-      }
-
-      const keyMatch = trimmed.match(/^([a-zA-Z0-9_]+):\s*(.*)$/);
-      if (keyMatch && currentMember) {
-        const key = keyMatch[1];
-        const value = stripQuotes(keyMatch[2]);
-        if (key === 'command') currentMember.command = value;
-        else if (key === 'emoji') currentMember.emoji = value;
-        else if (key === 'color') currentMember.color = value;
-      }
-      continue;
-    }
-
-    if (inChairman) {
-      const roleMatch = trimmed.match(/^(role|name):\s*(.+)$/);
-      if (roleMatch) {
-        result.council.chairman.role = stripQuotes(roleMatch[2]);
-      }
-      continue;
-    }
-
-    if (inSettings) {
-      const keyMatch = trimmed.match(/^([a-zA-Z0-9_]+):\s*(.+)$/);
-      if (keyMatch) {
-        const key = keyMatch[1];
-        const value = stripQuotes(keyMatch[2]);
-        result.council.settings[key] = value;
-      }
-      continue;
-    }
+    merged.council.members = council.members;
   }
 
-  finalizeMember();
-  if (result.council.members.length === 0) return fallback;
-  return result;
+  if (council.settings != null) {
+    if (typeof council.settings !== 'object' || Array.isArray(council.settings)) {
+      exitWithError(`Invalid config in ${configPath}: 'council.settings' must be a mapping/object`);
+    }
+    merged.council.settings = { ...merged.council.settings, ...council.settings };
+  }
+
+  return merged;
 }
 
 function ensureDir(dirPath) {
