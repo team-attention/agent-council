@@ -88,7 +88,7 @@ Notes:
   - One line per member: `[Council] Ask <member>` (checkbox marks completion)
   - `[Council] Synthesize`
   - (With the default config, `N` is usually 2 because the chairman is excluded, so you’ll typically see 4 items total.)
-- Default checklist uses only `pending` → `completed` (no `in_progress`). If you extend it, keep at most one `in_progress` at a time (Codex plan UI expects this).
+- The checklist keeps **exactly one** `in_progress` item while work remains (dispatch → one running member → synthesize) so Codex’s Plan UI stays visible; keep at most one `in_progress` at a time.
 - Don’t run a long `while true` loop in a single shell tool call; update the UI only after each `wait` return (auto-batched), then restore the original list (or remove the `[Council]` section) when finished.
 
 ## Examples

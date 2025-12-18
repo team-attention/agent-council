@@ -183,9 +183,7 @@ function buildCouncilUiPayload(statusPayload) {
   const isDone = String(statusPayload.overallState || '') === 'done';
 
   const queued = Number(counts.queued || 0);
-
-  // Keep plan UI simple: pending -> completed only (no `in_progress`).
-  const dispatchStatus = asCodexStepStatus(queued === 0 ? 'completed' : 'pending');
+  const running = Number(counts.running || 0);
 
   const members = Array.isArray(statusPayload.members) ? statusPayload.members : [];
   const sortedMembers = members
@@ -198,16 +196,30 @@ function buildCouncilUiPayload(statusPayload) {
     .sort((a, b) => a.member.localeCompare(b.member));
 
   const terminalStates = new Set(['done', 'missing_cli', 'error', 'timed_out', 'canceled']);
+  // Keep the Plan UI visible by ensuring exactly one `in_progress` item while work remains.
+  const dispatchStatus = asCodexStepStatus(isDone ? 'completed' : queued > 0 ? 'in_progress' : 'completed');
+  let hasInProgress = dispatchStatus === 'in_progress';
+
   const memberSteps = sortedMembers.map((m) => {
     const state = m.state || 'unknown';
     const isTerminal = terminalStates.has(state);
-    const status = asCodexStepStatus(isTerminal ? 'completed' : 'pending');
+
+    let status;
+    if (isTerminal) {
+      status = 'completed';
+    } else if (!hasInProgress && running > 0 && state === 'running') {
+      status = 'in_progress';
+      hasInProgress = true;
+    } else {
+      status = 'pending';
+    }
 
     const label = `[Council] Ask ${m.member}`;
-    return { label, status };
+    return { label, status: asCodexStepStatus(status) };
   });
 
-  const synthStatus = asCodexStepStatus(isDone ? 'completed' : 'pending');
+  // Once members are done, the host agent should synthesize and then mark this step completed.
+  const synthStatus = asCodexStepStatus(isDone ? (hasInProgress ? 'pending' : 'in_progress') : 'pending');
 
   const codexPlan = [
     { step: `[Council] Prompt dispatch`, status: dispatchStatus },
@@ -229,7 +241,12 @@ function buildCouncilUiPayload(statusPayload) {
     {
       content: `[Council] Synthesize`,
       status: synthStatus,
-      activeForm: synthStatus === 'completed' ? 'Council results ready' : 'Waiting to synthesize',
+      activeForm:
+        synthStatus === 'completed'
+          ? 'Council results ready'
+          : synthStatus === 'in_progress'
+            ? 'Ready to synthesize'
+            : 'Waiting to synthesize',
     },
   ];
 
