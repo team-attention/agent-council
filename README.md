@@ -39,6 +39,7 @@ npx github:team-attention/agent-council
 ```
 
 This copies the skill files to your current project directory.
+If you upgrade Agent Council and hit a runtime error like `Missing runtime dependency: yaml`, re-run the installer command above to refresh your installed skill files.
 
 By default, the installer auto-detects whether to install for Claude Code (`.claude/`) and/or Codex CLI (`.codex/`) based on what’s available on your machine and in the repo.
 

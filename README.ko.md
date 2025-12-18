@@ -39,6 +39,7 @@ npx github:team-attention/agent-council
 ```
 
 현재 프로젝트 디렉토리에 스킬 파일들이 복사됩니다.
+Agent Council을 업그레이드한 뒤 `Missing runtime dependency: yaml` 같은 런타임 에러가 나면, 위 설치 커맨드를 한 번 더 실행해서 설치된 스킬 파일을 갱신하세요.
 
 기본값으로 설치 스크립트가 자동으로 Claude Code(`.claude/`) / Codex CLI(`.codex/`) 설치 여부를 감지해서 가능한 타깃에 설치합니다.
 
