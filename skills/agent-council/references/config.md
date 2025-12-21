@@ -9,15 +9,15 @@ council:
   members:
     - name: claude
       command: "claude -p"
-      emoji: ":brain:"
+      emoji: "🧠"
       color: "CYAN"
     - name: codex
       command: "codex exec"
-      emoji: ":robot:"
+      emoji: "🤖"
       color: "BLUE"
     - name: gemini
       command: "gemini"
-      emoji: ":gem:"
+      emoji: "💎"
       color: "GREEN"
 ```
 
